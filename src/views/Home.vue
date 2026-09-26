@@ -23,21 +23,23 @@
 
       <!-- 操作按钮 -->
       <div class="hero-actions">
-        <el-button size="large" @click="">开始倾诉,获得陪伴</el-button>
-        <el-button size="large" @click="">记录心情,释放情绪</el-button>
+        <el-button size="large" @click="router.push('/consultation')">开始倾诉,获得陪伴</el-button>
+        <el-button size="large" @click="router.push('/emotion-diary')">记录心情,释放情绪</el-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+const router = useRouter()
 const robotImg = new URL('@/assets/images/robot-fill.png',import.meta.url).href
 </script>
 
 <style lang="scss" scoped>
 .home-container {
   position: relative;
-  background: linear-gradient(135deg, rgb(74, 156, 140) 0%, rgb(61, 138, 122) 100%);
+  background: var(--brand-grad-135);
   color: #fff;
   height: 100%;
   display: flex;

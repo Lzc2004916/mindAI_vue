@@ -2,11 +2,15 @@
   <div>
     <PageHead title="情绪日志" />
     <TableSearch :formItem="formItem" @search="handleSearch" />
-    <el-table :data="tableData" style="width: 100%">
+    <!-- height 固定高度后表头吸顶、内容竖向滚动（后端已改成不分页直接返回 List） -->
+    <el-table :data="tableData" v-loading="loading" height="600" style="width: 100%">
       <el-table-column prop="userId" label="用户ID" width="80" />
-      <el-table-column label="会话ID" width="80">
+      <el-table-column label="用户" width="100">
         <template #default="scope">
-          <el-avatar>{{ scope.row.nickname || '-' }}</el-avatar>
+          <div class="user-cell">
+            <el-avatar :size="28">{{ (scope.row.nickname || scope.row.username || '?').charAt(0) }}</el-avatar>
+            <span class="user-name">{{ scope.row.nickname || scope.row.username || '-' }}</span>
+          </div>
         </template>
       </el-table-column>
       <el-table-column prop="diaryDate" label="记录日期" width="120" />
@@ -24,21 +28,21 @@
         </template>
       </el-table-column>
       <el-table-column prop="emotionTriggers" label="情绪触发因素" width="120" />
-      <el-table-column prop="diaryContent" label="日记内容" width="250" />
+      <el-table-column label="日记内容" width="250">
+        <template #default="scope">
+          <span :title="scope.row.diaryContent">{{ scope.row.diaryContentPreview || scope.row.diaryContent || '-' }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="240" fixed="right">
         <template #default="scope">
           <el-button @click="viewSessionDetail(scope.row)" text type="primary">详情</el-button>
           <el-button @click="handleDelete(scope.row)" text type="danger">删除</el-button>
         </template>
       </el-table-column>
+      <template #empty>
+        <span>暂无情绪日志记录</span>
+      </template>
     </el-table>
-    <el-pagination
-      style="margin-top: 25px"
-      :page-size="pagination.size"
-      layout="prev, pager, next"
-      :total="pagination.total"
-      @change="handleChange"
-    />
 
     <el-dialog v-model="detailDialogVisible" title="情绪日志详情" width="800px" :close-on-click-modal="false">
       <div class="detail-content" v-if="currentDetail">
@@ -74,7 +78,8 @@
         </div>
         <div class="detail-section">
           <h4>AI情绪分析结果</h4>
-          <div class="ai-analysis-result">
+          <!-- 没有分析结果时给明确空态，而不是渲染一屏「未知风险等级」的空标签 -->
+          <div class="ai-analysis-result" v-if="hasAiAnalysis">
             <el-descriptions :column="2" border>
               <el-descriptions-item label="主要情绪">
                 <el-tag :type="getAiEmotionTagType(aiData.primaryEmotion)">{{
@@ -108,6 +113,13 @@
               <div v-else class="suggestion-content">无</div>
             </div>
           </div>
+          <div v-else class="ai-empty">
+            <p class="ai-empty-title">该日记还没有 AI 分析结果</p>
+            <p class="ai-empty-tip">
+              保存日记后系统会自动排队分析，稍等片刻再刷新查看
+              （当前状态：{{ currentDetail.hasAiEmotionAnalysis ? '已完成' : '待分析' }}）
+            </p>
+          </div>
         </div>
         <div class="detail-section">
           <h4>时间信息</h4>
@@ -125,7 +137,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import PageHead from '@/components/PageHead.vue'
 import TableSearch from '@/components/TableSearch.vue'
 import { getEmotionalLogPage, deleteEmotionalLog } from '@/api/admin'
@@ -205,46 +217,50 @@ const formItem = [
 
 // 列表
 const tableData = ref([])
-// 分页参数
-const pagination = reactive({
-  current: 1,
-  size: 10,
-  total: 0
-})
-
-const handleChange = (page) => {
-  pagination.current = page
-  handleSearch()
-}
+const loading = ref(false)
 
 const handleSearch = async (formData) => {
-  const params = {
-    ...pagination,
-    ...formData
+  loading.value = true
+  try {
+    // ⚠️ 后端已改成「不分页、直接返回 List」：data 就是数组，没有 records / total 外壳
+    const params = { ...formData }
+    // 搜索栏的「情绪评分」下拉值是 "1-3" 这种区间，拆成后端要的 min/max 两个参数
+    if (params.moodScoreRange) {
+      const [min, max] = params.moodScoreRange.split('-')
+      params.minMoodScore = min
+      params.maxMoodScore = max
+      delete params.moodScoreRange
+    }
+    const list = await getEmotionalLogPage(params)
+    tableData.value = list || []
+  } catch (e) {
+    tableData.value = []
+  } finally {
+    loading.value = false
   }
-  // 评分范围拆成后端要求的 min/max 两个参数
-  if (params.moodScoreRange) {
-    const [min, max] = params.moodScoreRange.split('-')
-    params.minMoodScore = min
-    params.maxMoodScore = max
-    delete params.moodScoreRange
-  }
-
-  const { records, total } = await getEmotionalLogPage(params)
-  tableData.value = records
-  pagination.total = total
 }
 
 // 详情
 const detailDialogVisible = ref(false)
 const currentDetail = ref(null)
 const aiData = ref(null)
+const hasAiAnalysis = ref(false)
 const viewSessionDetail = (row) => {
   currentDetail.value = row
+  hasAiAnalysis.value = false
+  aiData.value = {}
   if (row.aiEmotionAnalysis) {
-    aiData.value = JSON.parse(row.aiEmotionAnalysis)
-  } else {
-    aiData.value = {}
+    try {
+      const parsed = JSON.parse(row.aiEmotionAnalysis)
+      // 关键字段存在才算「有分析结果」—— 防止库里存着 '{}' 这种坏数据时渲染出一屏空标签
+      if (parsed && parsed.primaryEmotion) {
+        aiData.value = parsed
+        hasAiAnalysis.value = true
+      }
+    } catch (e) {
+      // JSON 损坏时按「无分析结果」处理，而不是让整个弹窗崩掉
+      hasAiAnalysis.value = false
+    }
   }
   detailDialogVisible.value = true
 }
@@ -268,6 +284,18 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .user-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .detail-content {
   .detail-section {
     margin-bottom: 24px;
@@ -285,26 +313,28 @@ onMounted(() => {
   }
 }
 
-// AI分析相关样式
-.ai-analysis-status {
-  .ai-status-tag {
-    margin-bottom: 4px;
+// AI 分析缺失时的空态
+.ai-empty {
+  padding: 20px 16px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
 
-    i {
-      margin-right: 4px;
-    }
+  .ai-empty-title {
+    margin: 0 0 6px;
+    font-size: 14px;
+    color: #606266;
   }
 
-  .ai-analysis-preview {
-    font-size: 11px;
+  .ai-empty-tip {
+    margin: 0;
+    font-size: 12px;
     color: #909399;
-    margin-top: 2px;
   }
 }
 
 .ai-analysis-result {
 
-  .ai-keywords-section,
   .ai-suggestion-section,
   .ai-risk-section,
   .ai-improvements-section {
@@ -326,18 +356,6 @@ onMounted(() => {
     }
   }
 
-  .keywords-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-
-    .keyword-tag {
-      background-color: #e1f3d8;
-      color: #67c23a;
-      border-color: #b3d8a4;
-    }
-  }
-
   .suggestion-content,
   .risk-content {
     line-height: 1.6;
@@ -356,22 +374,6 @@ onMounted(() => {
       margin-bottom: 4px;
       color: #606266;
       line-height: 1.5;
-    }
-  }
-
-  .ai-analysis-meta {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid #ebeef5;
-
-    .analysis-time {
-      margin: 0;
-      font-size: 12px;
-      color: #909399;
-
-      i {
-        margin-right: 4px;
-      }
     }
   }
 

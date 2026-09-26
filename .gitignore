@@ -17,6 +17,9 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Tool artifacts
+.workbuddy/
 *.suo
 *.ntvs*
 *.njsproj

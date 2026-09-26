@@ -13,10 +13,17 @@
         </div>
       </section>
 
-      <!-- 2. 情绪花园（内容全保留） -->
+      <!-- 2. 情绪花园 -->
       <section class="card emotion-garden">
         <h4 class="card-title">情绪花园</h4>
 
+        <!-- 没有分析结果时给明确空态，不再渲染一份「默认值假装是分析结果」 -->
+        <div v-if="!hasEmotion" class="emotion-empty">
+          <p class="emotion-empty-title">还没有情绪分析</p>
+          <p class="emotion-empty-tip">聊几句后，这里会出现属于你的情绪花园</p>
+        </div>
+
+        <template v-else>
         <div class="emotion-main">
           <div class="emotion-circle" :class="{ negative: currentEmotion.isNegative }">
             <span class="emotion-name">{{ currentEmotion.primaryEmotion }}</span>
@@ -47,10 +54,10 @@
         </div>
 
         <!-- 治愈小行动 -->
-        <div class="actions" v-if="currentEmotion.improvementSuggestions.length > 0">
+        <div class="actions" v-if="hasImprovements">
           <h5 class="block-title">治愈小行动</h5>
           <ul class="action-list">
-            <li v-for="action in currentEmotion.improvementSuggestions" :key="action">
+            <li v-for="(action, index) in currentEmotion.improvementSuggestions" :key="index">
               <span class="action-icon">👉</span>
               <span class="action-text">{{ action }}</span>
             </li>
@@ -62,22 +69,32 @@
           <h5 class="block-title">⚠️ 风险提示</h5>
           <p class="risk-text">{{ currentEmotion.riskDescription }}</p>
         </div>
+        </template>
       </section>
 
       <!-- 3. 会话列表 -->
       <section class="card session-history">
         <h4 class="card-title">会话列表</h4>
-        <ul class="session-list">
+        <ul class="session-list" v-loading="sessionLoading">
           <li v-for="session in sessionList" :key="session.id" class="session-item"
             @click="handleSessionClick(session)">
             <div class="session-row">
-              <span class="session-title">{{ session.sessionTitle }}</span>
-              <span class="session-time">{{ session.startedAt }}</span>
+              <span class="session-title">{{ session.sessionTitle || '未命名会话' }}</span>
+              <span class="session-time">{{ formatRelativeTime(session.lastMessageTime || session.startedAt) }}</span>
             </div>
-            <div class="session-preview">{{ session.lastMessageContent }}</div>
+            <div class="session-preview">{{ session.lastMessageContent || '暂无消息' }}</div>
+            <div class="session-meta">
+              <span v-if="session.messageCount">{{ session.messageCount }} 条消息</span>
+            </div>
             <button class="session-delete" @click.stop="handleDeleteSession(session.id)" title="删除会话">×</button>
           </li>
+          <li v-if="!sessionLoading && sessionList.length === 0" class="session-empty">
+            还没有会话，从右侧开始聊聊吧
+          </li>
         </ul>
+        <button v-if="hasMoreSessions" class="session-more" :disabled="sessionLoading" @click="loadMoreSessions">
+          {{ sessionLoading ? '加载中...' : '加载更多' }}
+        </button>
       </section>
     </aside>
 
@@ -132,32 +149,48 @@
             rows="3" @keydown="handleKeyDown"></textarea>
           <div class="input-meta">
             <span>Enter 发送 · Shift+Enter 换行</span>
-            <span>{{ userMessage.length }}/500</span>
+            <span :class="{ over: isOverLimit }">{{ userMessage.length }}/500</span>
           </div>
         </div>
-        <button class="send-btn" @click="sendMessage"
-          :disabled="!userMessage.trim() || !userMessage.length > 500 || isAiTyping">→</button>
+        <!-- 生成中给「停止」入口，把 abort 的主动权交给用户 -->
+        <button class="stop-btn" v-if="isAiTyping" @click="stopAIResponse">停止</button>
+        <button v-else class="send-btn" @click="sendMessage" :disabled="sendDisabled">→</button>
       </footer>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue"
-import { startSession, getSessionList, deleteSession, getSessionDetail,getSeeionEmotion } from "@/api/frontend.js"
+import { ref, reactive, computed, onMounted } from "vue"
+import { startSession, getSessionList, deleteSession, getSessionDetail, getSeeionEmotion } from "@/api/frontend.js"
 import { ElMessage, ElMessageBox } from "element-plus"
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue"
 import { fetchEventSource } from '@microsoft/fetch-event-source';
+// SSE 不走 axios，鉴权头得自己带；token/登出处理统一从 utils/auth 取
+import { getToken, handleUnauthorized } from '@/utils/auth';
 
 const robotImg = new URL('@/assets/images/robot-fill.png', import.meta.url).href
-const likeImg = new URL('@/assets/images/like.png', import.meta.url).href
 const userImg = new URL('@/assets/images/users.png', import.meta.url).href
+
+const MAX_MESSAGE_LENGTH = 500
+const SESSION_PAGE_SIZE = 10
 
 const userMessage = ref("")
 const isAiTyping = ref(false)
 const currentSession = ref(null)
 const sessionList = ref([])
 const messages = ref([])
+const sessionLoading = ref(false)
+const sessionPageNum = ref(1)
+const hasMoreSessions = ref(false)
+
+/**
+ * 当前这次流式请求的 AbortController。
+ * ⚠️ AbortController 是「一次性消耗品」：abort() 之后它的 signal 永久失效，
+ *    下次请求再复用它，请求会立刻被判定为已中止 → 第二条消息必然失败。
+ *    所以每次发起请求都重新 new 一个，用完置空。
+ */
+let ctrl = null
 
 // 新建会话
 const createNewFrontendSession = () => {
@@ -168,6 +201,7 @@ const createNewFrontendSession = () => {
   }
   currentSession.value = newSession
   messages.value = []
+  currentEmotion.value = null
 }
 
 const handleKeyDown = (e) => {
@@ -177,21 +211,33 @@ const handleKeyDown = (e) => {
   }
 }
 
+// 发送按钮禁用条件。
+// 原写法是 `!userMessage.length > 500`：先算 `!length`（得到 true/false），
+// 再和 500 比较，`0 > 500` 恒为 false → 500 字限制从未生效。这里拆开明确表达。
+const isOverLimit = computed(() => userMessage.value.trim().length > MAX_MESSAGE_LENGTH)
+const sendDisabled = computed(() =>
+  userMessage.value.trim().length === 0 || isOverLimit.value || isAiTyping.value
+)
+
 const sendMessage = () => {
-  if (!userMessage.value.trim()) return
   if (isAiTyping.value) {
     ElMessage.error('AI助手正在输入中，请稍后。')
     return
   }
   const content = userMessage.value.trim()
+  if (!content) return
+  if (content.length > MAX_MESSAGE_LENGTH) {
+    ElMessage.error(`单条消息最多 ${MAX_MESSAGE_LENGTH} 字`)
+    return
+  }
   userMessage.value = ''
   messages.value.push({
-    id: Date.now(),
+    id: `user_${Date.now()}`,
     senderType: 1,
     content,
     createdAt: new Date().toLocaleString()
   })
-  if (currentSession.value.status === 'TEMP') {
+  if (!currentSession.value || currentSession.value.status === 'TEMP') {
     startNewSession(content)
   } else {
     startAIResponse(currentSession.value.sessionId, content)
@@ -200,7 +246,7 @@ const sendMessage = () => {
 
 const startNewSession = async (content) => {
   const sessionParams = { initialMessage: content }
-  sessionParams.sessionTitle = currentSession.value.status === 'TEMP'
+  sessionParams.sessionTitle = currentSession.value?.status === 'TEMP'
     ? `宁渡AI助手 - ${new Date().toLocaleString()}`
     : currentSession.value.sessionTitle
 
@@ -210,38 +256,58 @@ const startNewSession = async (content) => {
     status: res.status,
     sessionTitle: sessionParams.sessionTitle
   }
-  if (currentSession.value && currentSession.value.status === 'TEMP') {
-    Object.assign(currentSession.value, sessionData)
-  } else {
-    currentSession.value = sessionData
-  }
-  getSessionPage()
+  currentSession.value = sessionData
+  refreshSessionList()
   startAIResponse(sessionData.sessionId, content)
 }
 
-const ctrl = new AbortController()
+/**
+ * 发起流式对话。
+ * 说明：fetchEventSource 返回的 Promise 在「被我们自己 abort」时既不 resolve 也不 reject，
+ * 所以这里不能用 await（会一直挂着），改为 .catch 兜住 onerror 里抛出的致命错误。
+ */
 const startAIResponse = async (sessionId, content) => {
   if (isAiTyping.value) return
   isAiTyping.value = true
-  messages.value.push({
+  ctrl = new AbortController()
+
+  // ⚠️ 必须用 reactive() 包一层，否则流式「不流式」：
+  //    messages.value.push(obj) 时 Vue 存进去的是**原始对象**（set 陷阱里做的是 toRaw，不是 toReactive），
+  //    响应式代理只在"读取数组元素"时才惰性创建。下面 onmessage 里用的是 aiMessage 这个**原始引用**，
+  //    直接 `aiMessage.content += 片段` 不会经过代理的 set 陷阱 → 依赖收不到通知 → 组件不重渲染。
+  //    现象就是：一直转圈，直到 done 里 isAiTyping 翻转触发那一次渲染，整段回复一次性蹦出来。
+  //    包了 reactive() 之后，这个引用本身就是代理，逐片段累加才会逐片段重渲染。
+  const aiMessage = reactive({
     id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
     senderType: 2,
     content: '',
     createdAt: new Date().toLocaleString()
   })
-  const aiMessage = messages.value[messages.value.length - 1]
+  messages.value.push(aiMessage)
+
   fetchEventSource("/api/psychological-chat/stream", {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Token': localStorage.getItem('token'),
+      'Token': getToken(),
       'Accept': 'text/event-stream'
     },
     body: JSON.stringify({ sessionId: sessionId, userMessage: content }),
     signal: ctrl.signal,
-    onopen: (res) => {
-      if (res.headers.get('Content-Type') !== 'text/event-stream') {
-        ElMessage.error('服务器返回的不是流式数据')
+    // 默认行为是「页面切到后台就断开、切回来重连」，聊天场景下容易重复触发，显式关掉
+    openWhenHidden: true,
+    onopen: async (res) => {
+      if (res.status === 401) {
+        // token 过期：SSE 不走 axios 拦截器，这里手动做和拦截器一样的登出动作
+        handleUnauthorized()
+        throw new Error('登录已过期')
+      }
+      const contentType = res.headers.get('Content-Type') || ''
+      if (!contentType.includes('text/event-stream')) {
+        // 原来只弹了个提示但没中止，后面会继续按 SSE 解析 → 一堆解析失败。
+        // 这里直接抛错，交给 onerror → 被 catch 兜住。
+        const text = await res.text().catch(() => '')
+        throw new Error(text || '服务器返回的不是流式数据')
       }
     },
     onmessage: (event) => {
@@ -249,8 +315,13 @@ const startAIResponse = async (sessionId, content) => {
       if (!raw) return
       if (event.event === 'done') {
         isAiTyping.value = false
-        ctrl.abort()
-        loadSessionEmotion(currentSession.value.sessionId)
+        // 只在 done 里做一次收尾：
+        // 原来 done 和 onclose 各调一次 loadSessionEmotion → 每次回复都打两次情绪分析请求
+        loadSessionEmotion(currentSession.value?.sessionId)
+        if (ctrl) {
+          ctrl.abort()
+          ctrl = null
+        }
         return
       }
       let payload
@@ -262,42 +333,102 @@ const startAIResponse = async (sessionId, content) => {
       if (String(payload.code) === '200' && payload.data?.content) {
         aiMessage.content += payload.data.content
       } else {
-        handleError(payload.message || 'AI回复失败')
+        handleError(payload.msg || payload.message || 'AI回复失败')
       }
     },
     onerror: (err) => {
-      handleError(err || 'AI回复失败')
-      ctrl.abort()
+      // 抛出去 → 停止重连，并被下面的 .catch 接住
       throw err
     },
     onclose: () => {
-      loadSessionEmotion(currentSession.value.sessionId)
+      // 正常关闭：复位状态即可（情绪分析只在 done 里刷新，避免重复请求）
+      isAiTyping.value = false
+      ctrl = null
     }
+  }).catch((err) => {
+    handleError(err?.message || 'AI回复失败')
   })
 }
 
-const handleError = (error)=>{
-  const aiMessage = messages.value[messages.value.length - 1]
-  if (aiMessage && aiMessage.sendderType === 2) {
-    aiMessage.content = 'AI回复失败,请重试'
+/** 用户主动停止生成 */
+const stopAIResponse = () => {
+  if (ctrl) {
+    ctrl.abort()
+    ctrl = null
   }
   isAiTyping.value = false
-  ElMessage.error(error)
+  const last = messages.value[messages.value.length - 1]
+  if (last && last.senderType === 2 && !last.content) {
+    last.content = '已停止生成'
+    last.isError = true
+  }
 }
 
-const getSessionPage = async () => {
-  const res = await getSessionList({ pageNum: 1, pageSize: 10 })
-  sessionList.value = res.records
+/**
+ * 统一错误处理。
+ * 先确认最后一条确实是「AI 占位消息」再改它的内容，
+ * 否则会误改到用户自己刚发的那条（原实现就是这个隐患）。
+ */
+const handleError = (error) => {
+  const last = messages.value[messages.value.length - 1]
+  if (last && last.senderType === 2 && !last.isError) {
+    last.content = typeof error === 'string' ? error : 'AI回复失败,请重试'
+    last.isError = true
+  }
+  isAiTyping.value = false
+  ctrl = null
+  ElMessage.error(typeof error === 'string' ? error : 'AI回复失败,请重试')
+}
+
+/** 拉取会话列表；reset=true 时回到第 1 页 */
+const getSessionPage = async (reset = true) => {
+  if (sessionLoading.value) return
+  sessionLoading.value = true
+  try {
+    if (reset) sessionPageNum.value = 1
+    const res = await getSessionList({ pageNum: sessionPageNum.value, pageSize: SESSION_PAGE_SIZE })
+    const records = res?.records || []
+    sessionList.value = reset ? records : [...sessionList.value, ...records]
+    const total = res?.total ?? sessionList.value.length
+    hasMoreSessions.value = sessionList.value.length < total
+  } catch (e) {
+    if (reset) sessionList.value = []
+    hasMoreSessions.value = false
+  } finally {
+    sessionLoading.value = false
+  }
+}
+
+/** 只刷新第 1 页：仅在「当前只加载了第 1 页」时使用，避免把已加载的更多页丢掉 */
+const refreshSessionList = () => {
+  if (sessionPageNum.value === 1) {
+    getSessionPage(true)
+  }
+}
+
+const loadMoreSessions = () => {
+  sessionPageNum.value += 1
+  getSessionPage(false)
 }
 
 const handleSessionClick = async (session) => {
-  const res = await getSessionDetail(session.id)
-  messages.value = res
-  loadSessionEmotion(session.id)
-  currentSession.value = {
-    sessionId: "session_" + session.id,
-    status: 'ACTIVE',
-    sessionTitle: session.sessionTitle
+  if (isAiTyping.value) {
+    ElMessage.warning('AI 正在回复，请稍候再切换会话')
+    return
+  }
+  sessionLoading.value = true
+  try {
+    const res = await getSessionDetail(session.id)
+    messages.value = res || []
+    currentSession.value = {
+      sessionId: `session_${session.id}`,
+      status: 'ACTIVE',
+      sessionTitle: session.sessionTitle
+    }
+    currentEmotion.value = null
+    loadSessionEmotion(session.id)
+  } finally {
+    sessionLoading.value = false
   }
 }
 
@@ -308,27 +439,50 @@ const handleDeleteSession = async (sessionId) => {
     type: 'warning'
   }).then(async () => {
     await deleteSession(sessionId)
+    if (currentSession.value && Number(currentSession.value.sessionId.replace('session_', '')) === Number(sessionId)) {
+      createNewFrontendSession()
+    }
     getSessionPage()
     ElMessage.success('删除成功')
-  })
+  }).catch(() => {})
 }
 
-const formatMessageContent = (content) => content.replace(/\n/g, '<br>')
+const formatMessageContent = (content) => String(content ?? '').replace(/\n/g, '<br>')
 
-// 情绪花园
-const currentEmotion = ref({
-  primaryEmotion: '中性',
-  emotionScore: 50,
-  isNegative: false,
-  intensityLevel: 0,
-  suggestion: '保持积极心态，适当调整情绪',
-  improvementSuggestions: []
-})
+/**
+ * 相对时间（会话列表比「2026-09-26 21:30:00」更好读）。
+ * 注意把 `-` 换成 `/`：Safari/iOS 解析 `2026-09-26 21:30:00` 会得到 Invalid Date。
+ */
+const formatRelativeTime = (time) => {
+  if (!time) return ''
+  const date = new Date(String(time).replace(/-/g, '/'))
+  if (Number.isNaN(date.getTime())) return String(time)
+  const diff = Date.now() - date.getTime()
+  if (diff < 60 * 1000) return '刚刚'
+  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 7 * 24 * 60 * 60 * 1000) return `${Math.floor(diff / 86400000)} 天前`
+  return `${date.getMonth() + 1}月${date.getDate()}日`
+}
+
+// 情绪花园：初始为 null（表示「还没有分析结果」），不再用一份默认值假装是分析结果
+const currentEmotion = ref(null)
+const hasEmotion = computed(() => Boolean(currentEmotion.value?.primaryEmotion))
+const hasImprovements = computed(() =>
+  Array.isArray(currentEmotion.value?.improvementSuggestions) &&
+  currentEmotion.value.improvementSuggestions.length > 0
+)
 
 const loadSessionEmotion = async (sessionId) => {
-  const id = sessionId.toString().startsWith('session_') ? sessionId : `session_${sessionId}`
-  const res = await getSeeionEmotion(id)
-  currentEmotion.value = res
+  if (!sessionId) return
+  const id = String(sessionId).startsWith('session_') ? sessionId : `session_${sessionId}`
+  try {
+    const res = await getSeeionEmotion(id)
+    currentEmotion.value = res && res.primaryEmotion !== undefined ? res : null
+  } catch (e) {
+    // 分析失败不影响聊天，保持/回到空态即可
+    currentEmotion.value = null
+  }
 }
 
 const getIntensityClass = (score) => {
@@ -452,6 +606,25 @@ onMounted(() => {
   min-height: 0;
   overflow-y: auto;
 
+  .emotion-empty {
+    padding: 20px 8px;
+    text-align: center;
+
+    .emotion-empty-title {
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+    }
+
+    .emotion-empty-tip {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text-3);
+      line-height: 1.6;
+    }
+  }
+
   .emotion-main {
     display: flex;
     align-items: center;
@@ -572,6 +745,29 @@ onMounted(() => {
     min-height: 0;
   }
 
+  .session-empty {
+    list-style: none;
+    padding: 20px 8px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+
+  .session-more {
+    flex-shrink: 0;
+    margin-top: 8px;
+    padding: 6px;
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: var(--primary-hover-bg); }
+    &:disabled { color: var(--text-3); cursor: not-allowed; }
+  }
+
   .session-item {
     position: relative;
     list-style: none;
@@ -607,6 +803,12 @@ onMounted(() => {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .session-meta {
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--text-3);
     }
 
     .session-delete {
@@ -786,6 +988,8 @@ onMounted(() => {
     font-size: 11px;
     color: var(--text-3);
     margin-top: 6px;
+
+    .over { color: #dc2626; }
   }
 
   .send-btn {
@@ -802,6 +1006,20 @@ onMounted(() => {
     &:hover:not(:disabled) { background: var(--primary-weak); }
 
     &:disabled { background: #d1d5db; cursor: not-allowed; }
+  }
+
+  .stop-btn {
+    height: 42px;
+    padding: 0 16px;
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text-2);
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:hover { background: #f3f4f6; }
   }
 }
 

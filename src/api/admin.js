@@ -1,4 +1,5 @@
 import service from "@/utils/request";
+import { UPLOAD_TIMEOUT } from "@/config";
 
 export function login(data){
     return service.post('/user/login',data)
@@ -18,7 +19,9 @@ export function uploadFile(file,businessInfo){
     return service.post('/file/upload',formData,{
         headers:{
             'Content-Type':'multipart/form-data'
-        }
+        },
+        // 图片上传在弱网下容易超过全局 10s，这里单独放宽到 30s
+        timeout: UPLOAD_TIMEOUT
     })
 }
 export function createArticle(data){

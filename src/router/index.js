@@ -2,6 +2,7 @@ import Backendlayout from "@/components/Backendlayout.vue";
 import { createRouter, createWebHistory } from "vue-router";
 import AuthLayout from "@/components/AuthLayout.vue";
 import FrontendLayou from "@/components/FrontendLayou.vue";
+import { useAuthStore } from "@/stores/auth";
 const backendRouter = [
   {
     path: "/back",
@@ -105,31 +106,29 @@ const router = createRouter({
   routes: [...backendRouter, ...frontendRouter],
 });
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-    //如果是后台用户
-    if (userInfo.userType == 2) {
-      if (to.path.startsWith("/back")) {
-        next();
-      } else {
-        next("/back/dashboard");
-      }
-    } else if (userInfo.userType == 1) {
-      if(to.path.startsWith("/back") || to.path.startsWith("/auth")){
-        next("/");
-      }else{
-        next();
-      }
-    }
-  } else {
-    if (to.path.startsWith("/back")) {
-      //如果是后台路由，且没有token，重定向到登录页
-      next("/auth/login");
+  // 读统一的登录态 store（内部已含「localStorage 损坏时返回 null」的容错），
+  // 不再直接 JSON.parse(localStorage.userInfo) —— 原实现遇到脏数据会直接抛异常、路由崩掉。
+  const auth = useAuthStore();
+
+  // 这些页面背后的后端接口都要求带 token（@GetToken），未登录直接去登录页，
+  // 免得进了页面再收到一串「未登录」的错误提示。
+  const needLogin =
+    to.path.startsWith("/back") ||
+    to.path.startsWith("/consultation") ||
+    to.path.startsWith("/emotion-diary");
+
+  if (auth.isLogin) {
+    if (auth.isAdmin) {
+      // 管理员只能待在管理端
+      to.path.startsWith("/back") ? next() : next("/back/dashboard");
     } else {
-      //如果不是后台路由，且没有token，直接放行
-      next();
+      // 普通用户不能进管理端和登录注册页
+      to.path.startsWith("/back") || to.path.startsWith("/auth") ? next("/") : next();
     }
+    return;
   }
+
+  // 未登录：只有首页、知识库等公开页放行
+  needLogin ? next("/auth/login") : next();
 });
 export default router;

@@ -3,6 +3,7 @@
     :title="isEdit ? '编辑文章' : '新增文章'"
     v-model="dialogVisible"
     width="50%"
+    destroy-on-close
   >
   <el-form ref="formRef" :model="formData" :rules="rules">
     <el-form-item label="文章标题" prop="title">
@@ -42,8 +43,9 @@
      </div>
     </el-form-item>
     <el-form-item label="文章内容" prop="content">
-      <RichTextEditor 
-      v-model="formData.content"
+      <!-- 内容走单向流：向下用 :model-value 初始化，向上只接 @Change -->
+      <RichTextEditor
+      :model-value="formData.content"
       placeholder = "请输入文章内容，支持富文本格式"
       :maxCharCount="5000"
       @Change="handelContentChange"
@@ -79,10 +81,6 @@ const props = defineProps({
         type: Array,
         default: ()=>[]
     },
-    success: {
-        type: Function,
-        default: ()=>{}
-    },
     article :{
         type: Object,
         default: null,
@@ -95,6 +93,7 @@ const formData = reactive({
     "categoryId": "",
     "summary": "",
     "tags": "",
+    "tagArray": [],   // 标签选择器绑定的是它（提交时再 join 成字符串）
     "id": ""
 })
 const rules = reactive({
@@ -118,12 +117,17 @@ const commonTags = [
 ]
 const emit = defineEmits(['update:modelValue','success'])
 watch(() => props.article,(newVal) => {
-    console.log(newVal);
     if (newVal) {
         nextTick(()=>{
         Object.assign(formData,newVal)
+        // ⚠️ 关键：后端把 tags 存成逗号字符串，而标签选择器绑的是 tagArray（数组）。
+        //    原来只 Object.assign 了 formData，tagArray 拿不到值 →
+        //    编辑时标签显示不出来，且提交时 `formData.tagArray.join(',')` 会报
+        //    "Cannot read properties of undefined (reading 'join')"，更新直接失败。
+        formData.tagArray = newVal.tags ? String(newVal.tags).split(',').filter(Boolean) : []
         businessId.value = newVal.id
-        imgUrl.value = `${fileBaseUrl}${newVal.coverImage}`
+        // 封面为空时要给空串，否则会拼出 "http://host" 这种无效地址 → 裂图
+        imgUrl.value = newVal.coverImage ? `${fileBaseUrl}${newVal.coverImage}` : ''
         })
     } else {
         // 新增模式：清空残留的编辑数据
@@ -155,7 +159,11 @@ const beforeUpload = (file)=>{
     return true
 }
 const handleUploadRequest = async({file})=>{
-    businessId.value = crypto.randomUUID()
+    // 复用已有 businessId：编辑时用文章 id，新增时首次上传生成一次后一直复用。
+    // 原来每次都 crypto.randomUUID() → 一篇文章多次换封面会散落多个孤儿文件。
+    if (!businessId.value) {
+        businessId.value = crypto.randomUUID()
+    }
     const fileRes = await uploadFile(file,{
         businessId: businessId.value,
     })
@@ -189,32 +197,31 @@ const handleClose = ()=>{
     formData.tagArray = []
     emit('update:modelValue',false)
 }
-const handleSubmit = ()=>{
-    formRef.value.validate((valid,fields)=>{
-        if(valid){
-            loading.value = true
-            const submitData = {
-                ...formData,
-                tags: formData.tagArray.join(',')
-            }
-            delete submitData.tagArray
-            if(!isEdit.value){
-                // 新增模式：提交新增文章
-                submitData.id = businessId.value
-                createArticle(submitData).then(res=>{
-                loading.value = false
-                emit('success')
-            })
-            } else{
-                // 编辑模式：提交更新文章
-                updateArticle(props.article.id,submitData).then(res=>{
-                    loading.value = false
-                    emit('success')
-                })
-            }
-           
+const handleSubmit = async ()=>{
+    const valid = await formRef.value.validate().catch(() => false)
+    if (!valid) return
+    loading.value = true
+    const submitData = {
+        ...formData,
+        tags: (formData.tagArray || []).join(',')
+    }
+    // tagArray 只是前端标签选择器用的，提交时已经拼成 tags 字符串，不要发给后端
+    delete submitData.tagArray
+    // 说明：新增时不需要传 id —— 后端 create() 自己用 UUID 生成主键
+    delete submitData.id
+    try {
+        if (!isEdit.value) {
+            await createArticle(submitData)
+        } else {
+            await updateArticle(props.article.id, submitData)
         }
-    })
+        ElMessage.success(isEdit.value ? '更新成功' : '新增成功')
+        emit('success')
+    } catch (e) {
+        // 失败提示已由请求拦截器统一弹出；这里只负责把 loading 复位（原实现无 catch，失败会一直转圈）
+    } finally {
+        loading.value = false
+    }
 }
 const isEdit = computed(()=>{
     return !!props.article?.id

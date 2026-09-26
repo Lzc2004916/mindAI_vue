@@ -10,11 +10,14 @@
             <router-link to="/consultation" class="nav-link" v-if="isLogin">AI咨询</router-link>
             <router-link to="/emotion-diary" class="nav-link" v-if="isLogin">情绪日志</router-link>
             <router-link to="/knowledge" class="nav-link">知识库</router-link>
-            <el-button class="logout-btn" @click="handleLogout" v-if="isLogin">退出登录</el-button>
+            <template v-if="isLogin">
+                <span class="user-greeting">{{ auth.displayName }}</span>
+                <el-button class="logout-btn" @click="confirmLogout">退出登录</el-button>
+            </template>
             <template v-else>
                 <router-link to="/auth/login" class="nav-link">登录</router-link>
                  <router-link to="/auth/register" class="nav-link">
-                    <el-button type="primary" @click="">注册</el-button>
+                    <el-button type="primary">注册</el-button>
                  </router-link>
             </template>
         </div>
@@ -31,32 +34,22 @@
 </template>
 
 <script setup>
-import { ref,onMounted,computed } from 'vue';
-import { useRouter,useRoute } from 'vue-router'
-import {ElMessageBox,ElMessage} from 'element-plus'
+import { computed } from 'vue';
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useLogout } from '@/composables/useLogout'
 
-const router = useRouter();
 const route = useRoute();
+const auth = useAuthStore();
+const { confirmLogout } = useLogout();
 
 const logoImg = new URL('@/assets/images/机器人.png', import.meta.url).href
-const isLogin = ref(false)
+
+// 登录态来自 store（响应式）：登录/退出后导航立刻切换，不再需要 F5
+const isLogin = computed(() => auth.isLogin)
+
 // 只有首页显示 footer，路由切换自动响应
 const footerShow = computed(() => route.path === '/')
-onMounted(()=>{
-    isLogin.value = localStorage.getItem('token') ? true : false
-})
-const handleLogout = ()=>{
-    ElMessageBox.confirm('确定退出登录吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-    }).then(() => {
-        ElMessage.success('退出登录成功')
-        localStorage.removeItem('token')
-        localStorage.removeItem('userInfo')
-        router.push('/auth')
-    })
-}
 </script>
 
 <style lang="scss" scoped>
@@ -100,8 +93,18 @@ const handleLogout = ()=>{
                 font-weight: 500;
 
                 &:hover {
-                    color: #4A90E2;
+                    color: var(--brand);
                 }
+            }
+
+            .user-greeting {
+                color: #4b5563;
+                font-size: 16px;
+                font-weight: 500;
+                max-width: 120px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
         }
     }

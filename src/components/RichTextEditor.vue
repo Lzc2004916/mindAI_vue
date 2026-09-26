@@ -9,7 +9,6 @@
         class="editor-toolbar"
       />
       <WangEditor
-        v-model="content"
         :defaultConfig="editorConfig"
         mode="default"
         class="wang-editor"
@@ -35,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { ref, reactive, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import '@wangeditor/editor/dist/css/style.css'
 import { Editor as WangEditor, Toolbar as WangToolbar } from '@wangeditor/editor-for-vue'
@@ -58,10 +57,6 @@ const props = defineProps({
     type: Boolean,
     default: true
   },
-  showSecurityTip: {
-    type: Boolean,
-    default: true
-  },
   toolbarKeys: {
     type: Array,
     default: () => [
@@ -80,17 +75,14 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['update:modelValue', 'change', 'created'])
+// 说明：内容采用**单向流** —— 向下用 `modelValue` 初始化，向上只通过 `change` 事件抛 html。
+// 原来还额外绑了 `v-model`（Editor 的 update:modelValue），和 `change` 两条路写同一个字段，
+// 属于重复；现在统一走 `change`，父组件只需 `:model-value` + `@Change`。
+const emit = defineEmits(['change', 'created'])
 
 // 响应式数据
 const editorRef = shallowRef(null)
 const currentCharCount = ref(0)
-
-// 计算属性
-const content = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
-})
 
 // 编辑器配置
 const editorConfig = reactive({
@@ -182,24 +174,8 @@ const handleEditorCreated = (editor) => {
   // 初始化字数统计
   updateCharCount()
   
-  // 调试信息 - 检查字体配置
-  console.log('编辑器实例:', editor)
-  console.log('工具栏配置:', editor.getConfig())
-  
-  // 检查字体菜单
-  const menus = editor.getAllMenuKeys()
-  console.log('所有可用菜单:', menus)
-  
-  if (menus.includes('fontFamily')) {
-    console.log('字体菜单已启用')
-  } else {
-    console.warn('字体菜单未启用')
-  }
-  
-  // 触发创建事件
+  // 触发创建事件（原这里有一串 console.log 调试输出，每次打开编辑器都刷一屏，已清理）
   emit('created', editor)
-  
-  console.log('富文本编辑器已创建')
 }
 
 const handleEditorChange = (editor) => {
@@ -214,7 +190,6 @@ const handleEditorChange = (editor) => {
 
 const handleEditorDestroyed = () => {
   editorRef.value = null
-  console.log('富文本编辑器已销毁')
 }
 
 const updateCharCount = () => {
@@ -388,8 +363,8 @@ onBeforeUnmount(() => {
 
 :deep(.w-e-color-panel .w-e-color-item:hover) {
   transform: scale(1.1);
-  border-color: #4A90E2;
-  box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+  border-color: var(--brand);
+  box-shadow: 0 2px 4px rgba(15, 110, 86, 0.25);
 }
 
 /* 字体面板样式优化 */
@@ -409,8 +384,8 @@ onBeforeUnmount(() => {
 }
 
 :deep(.w-e-select-list .w-e-select-list-item.selected) {
-  background-color: #e3f2fd;
-  color: #4A90E2;
+  background-color: var(--brand-bg);
+  color: var(--brand);
 }
 
 :deep(.w-e-text-placeholder) {
@@ -460,8 +435,8 @@ onBeforeUnmount(() => {
 }
 
 :deep(.w-e-panel .w-e-panel-content .w-e-panel-content-font-family .w-e-panel-content-font-family-item.selected) {
-  background-color: #e3f2fd;
-  color: #4A90E2;
+  background-color: var(--brand-bg);
+  color: var(--brand);
   font-weight: 500;
 }
 
@@ -484,13 +459,13 @@ onBeforeUnmount(() => {
 
 :deep(.w-e-panel .w-e-panel-content .w-e-panel-content-font-size .w-e-panel-content-font-size-item:hover) {
   background-color: #f8f9fa;
-  border-color: #4A90E2;
+  border-color: var(--brand);
 }
 
 :deep(.w-e-panel .w-e-panel-content .w-e-panel-content-font-size .w-e-panel-content-font-size-item.selected) {
-  background-color: #4A90E2;
+  background-color: var(--brand);
   color: white;
-  border-color: #4A90E2;
+  border-color: var(--brand);
 }
 
 :deep(.w-e-select-list .selected::after) {
@@ -499,7 +474,7 @@ onBeforeUnmount(() => {
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  color: #4A90E2;
+  color: var(--brand);
   font-size: 12px;
 }
 
@@ -535,24 +510,9 @@ onBeforeUnmount(() => {
 
 .progress-fill {
   height: 100%;
-  background: #4A90E2;
+  background: var(--brand);
   transition: all 0.3s ease;
   border-radius: 2px;
-}
-
-.security-tip {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  color: #6B7280;
-  padding: 0.5rem 1rem;
-  background: #f9fafb;
-  border-top: 1px solid #e5e7eb;
-}
-
-.security-tip i {
-  color: #10B981;
 }
 
 /* 响应式设计 */

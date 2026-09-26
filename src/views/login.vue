@@ -25,7 +25,7 @@
         <el-form-item label="密码" prop="password">
             <el-input v-model="formData.password" placeholder="请输入密码" size="large" type="password" show-password></el-input>
         </el-form-item>
-        <el-button class="btn" type="primary" size="large" @click="submitForm(ruleFormRef)">登录</el-button>
+        <el-button class="btn" type="primary" size="large" :loading="loading" @click="submitForm">登录</el-button>
         
         </el-form>
         <div class="footer">
@@ -37,10 +37,14 @@
 
 <script setup>
 import { ref, reactive } from "vue"
+import { ElMessage } from "element-plus"
 import { login } from "@/api/admin";
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 const router = useRouter()
+const auth = useAuthStore()
 const ruleFormRef = ref()
+const loading = ref(false)
 const formData = reactive({
     username: '',
     password: ''
@@ -53,24 +57,26 @@ const rules = reactive({
         {required: true, message: '请输入密码', trigger: 'blur'}
     ]
 })
-const submitForm = async(ruleFormRef)=>{
-    if(!ruleFormRef) return
-    await ruleFormRef.validate(async (valid,fields)=>{
-        if(valid){
-           const data = await login(formData)
-           if(!data.token){
-                return console.error('登录失败')
-           }
-           localStorage.setItem('token',data.token)
-           localStorage.setItem('userInfo',JSON.stringify(data.userInfo))
-           //根据用户角色决定跳转路径
-           if(data.userInfo.userType === 2){
-                router.push('/back/dashboard')
-           }else if(data.userInfo.userType === 1){
-                router.push('/')
-           }
+const submitForm = async()=>{
+    if(!ruleFormRef.value) return
+    // validate 校验失败会 reject，这里不额外弹提示（表单自身已有红字）
+    const valid = await ruleFormRef.value.validate().catch(() => false)
+    if(!valid) return
+    loading.value = true
+    try{
+        const data = await login(formData)
+        // 防御性判断：正常情况下失败会被拦截器 reject 掉，走不到这里
+        if(!data?.token){
+            ElMessage.error('登录失败，请检查用户名和密码')
+            return
         }
-    })
+        // 登录态统一写入 store（内部会同步到 localStorage）
+        auth.login(data.token, data.userInfo)
+        // 按角色分流：管理员去管理端，普通用户回用户端
+        router.replace(auth.homePath)
+    } finally {
+        loading.value = false
+    }
 }
 </script>
 

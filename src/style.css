@@ -1,3 +1,40 @@
+/**
+ * 全局样式
+ *
+ * 品牌色统一在这里定义（2026-09-26 统一）。
+ * 之前是「青绿 rgb(74,156,140)」和「蓝 #4A90E2」两套主色并存，
+ * 现在统一到治愈薄荷绿 #0f6e56 一系（与 Consultation.vue 的「情绪花园」一致）。
+ * 组件里一律用 var(--brand*) 引用，不要再写死色值。
+ */
+:root {
+  --brand: #0f6e56;          /* 主色 */
+  --brand-weak: #1d9e75;     /* 主色浅一档：hover / 强调 */
+  --brand-bg: #e1f5ee;       /* 主色浅底：色块、头像底 */
+  --brand-hover-bg: #f0faf6; /* 极浅底：hover 行、幽灵按钮 */
+  --brand-grad-135: linear-gradient(135deg, #1d9e75 0%, #0f6e56 100%);
+  --brand-grad-90: linear-gradient(90deg, #1d9e75 0%, #0f6e56 100%);
+
+  --text-1: #1f2937;
+  --text-2: #4b5563;
+  --text-3: #9ca3af;
+  --border: #e5e7eb;
+
+  /**
+   * 让 Element Plus 的主色也走品牌绿。
+   * 不覆盖的话，`type="primary"` 的按钮/链接/分页高亮仍然是默认蓝 #409eff，
+   * 就还是「青绿 + 蓝」两套主色并存。
+   * light-N 是把主色按 N*10% 与白色混合、dark-2 是与黑色混合 20% 得到的，
+   * Element Plus 靠这几个变量派生 hover / disabled / plain 等状态。
+   */
+  --el-color-primary: #0f6e56;
+  --el-color-primary-light-3: #579a89;
+  --el-color-primary-light-5: #87b7ab;
+  --el-color-primary-light-7: #b7d4cc;
+  --el-color-primary-light-8: #cfe2dd;
+  --el-color-primary-light-9: #e7f1ee;
+  --el-color-primary-dark-2: #0c5845;
+}
+
 html, body, div, span, object, iframe,
 h1, h2, h3, h4, h5, h6, p, blockquote, pre,
 abbr, address, cite, code,
@@ -16,7 +53,15 @@ time, mark, audio, video {
   outline: 0;
   /* font-size:100%; */
   vertical-align: baseline;
-  background: transparent;
+  /* 注意：这里特意不写 background: transparent ——
+     它会作用到「所有」元素上，把组件库（Element Plus）自己的背景一并洗掉，
+     排查样式问题时非常迷惑。常规 reset 只清 margin/padding/box-sizing 即可。 */
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 a {
@@ -30,6 +75,7 @@ li {
 body {
   height: 100vh;
   background-color: #f1f4f6;
+  color: var(--text-1);
 }
 
 #app {
@@ -42,10 +88,10 @@ body {
   border-bottom: 1px solid transparent;
 }
 
-.pagination-info {
-  padding: 10px 0;
-  background-color: #fff;
-  .el-pagination {
-    justify-content: end;
-  }
+/* 表格空态（全站统一文案风格）
+   Element Plus 的 el-table 支持 #empty 插槽，这里给个默认样式；
+   具体文案由各页面通过插槽自定义。 */
+.el-table__empty-text {
+  color: var(--text-3);
+  font-size: 13px;
 }

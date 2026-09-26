@@ -9,8 +9,8 @@
     <div class="flex-box">
         <el-dropdown @command="handleCommand">
             <div class="flex-box">
-                <el-avatar src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"></el-avatar>
-                <p class="user-name">admin</p>
+                <el-avatar :src="auth.avatar || undefined">{{ auth.avatarText }}</el-avatar>
+                <p class="user-name">{{ auth.displayName }}</p>
                 <el-icon><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
@@ -27,28 +27,21 @@
 <script setup>
 import { Expand } from '@element-plus/icons-vue';
 import { useAdminStore } from '@/stores/admin'
-import { useRouter,useRoute } from 'vue-router'
-import { ElMessageBox,ElMessage }  from 'element-plus'
-import { logout } from '@/api/admin'
-const router = useRouter();
+import { useAuthStore } from '@/stores/auth'
+import { useLogout } from '@/composables/useLogout'
+import { useRoute } from 'vue-router'
 const route = useRoute();
+const adminStore = useAdminStore();
+const auth = useAuthStore();
+const { confirmLogout } = useLogout();
 
 const handleCommand = (command) => {
-    ElMessageBox.confirm('确定退出登录吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-    }).then(() => {
-        logout().then(res=>{
-            localStorage.removeItem('token')
-            localStorage.removeItem('userInfo')
-            router.push('/auth/login')
-            ElMessage.success('退出登录成功')
-        })
-    })
+    if (command === 'logout') {
+        confirmLogout()
+    }
 }
 const handleCollapse = ()=>{
-    useAdminStore().toggleCollapse()
+    adminStore.toggleCollapse()
 }
 </script>
 

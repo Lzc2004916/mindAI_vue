@@ -27,7 +27,7 @@ const robotImg = new URL('@/assets/images/robot-fill.png', import.meta.url).href
         justify-content: center;
         align-items: center;
         flex: 1;
-        background: linear-gradient(90deg, rgb(74, 156, 140) 0%, rgb(61, 138, 122) 100%) rgba(74, 156, 140, 0.95);
+        background: var(--brand-grad-90);
         height: 100vh;
         .content {
             display: flex;
