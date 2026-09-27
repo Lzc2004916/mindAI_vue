@@ -80,6 +80,45 @@ export function isLoggedIn() {
 let redirecting = false
 
 /**
+ * 「登录态被清空」的观察者机制。
+ *
+ * 为什么需要：本模块只读写 localStorage，是纯粹的函数式实现、不持有响应式状态；
+ * 但应用里另有一层 Pinia store（stores/auth）缓存着 token / userInfo，供导航栏等组件响应式使用。
+ * 过去 handleUnauthorized() 只清 localStorage、不动 store，于是出现
+ * 「localStorage 已空、store 却仍认为已登录」的分裂状态：路由守卫读的是 store，
+ * 于是继续放行，用户看到页面一切正常（昵称还在、还能点），
+ * 但之后每个请求都因为没带 token 被后端拒绝（后端返回 A0301 访问未授权）。
+ *
+ * 这里做一个极简的观察者：清登录态后广播一次，由 main.js 注册回调把 store 同步过去。
+ */
+const clearHandlers = []
+
+/**
+ * 注册「登录态被清空」回调。
+ * @param {Function} fn 无参回调
+ * @returns {Function} 取消注册的函数
+ */
+export function onAuthCleared(fn) {
+  if (typeof fn !== 'function') return () => {}
+  clearHandlers.push(fn)
+  return () => {
+    const i = clearHandlers.indexOf(fn)
+    if (i > -1) clearHandlers.splice(i, 1)
+  }
+}
+
+function notifyAuthCleared() {
+  // 先复制再遍历：回调内部若又触发注册/注销，不会打乱本次遍历
+  clearHandlers.slice().forEach((fn) => {
+    try {
+      fn()
+    } catch (e) {
+      // 单个回调出错不能影响「清登录态 + 跳登录页」这条主流程
+      console.warn('[auth] onAuthCleared 回调执行失败：', e)
+    }
+  })
+}
+/**
  * 401 的统一处理动作：清登录态 → 提示 → 回登录页。
  *
  * 用 `window.location.href` 而不是 router：这个函数会被 axios 拦截器 / SSE 调用，
@@ -88,6 +127,7 @@ let redirecting = false
  */
 export function handleUnauthorized(message = '登录已过期，请重新登录') {
   clearAuth()
+  notifyAuthCleared()
   // 已经在登录页（例如登录接口本身返回 401）就不用再跳，避免死循环刷新
   if (redirecting || window.location.pathname.startsWith(LOGIN_PATH)) return
   redirecting = true

@@ -11,8 +11,19 @@
             <router-link to="/emotion-diary" class="nav-link" v-if="isLogin">情绪日志</router-link>
             <router-link to="/knowledge" class="nav-link">知识库</router-link>
             <template v-if="isLogin">
-                <span class="user-greeting">{{ auth.displayName }}</span>
-                <el-button class="logout-btn" @click="confirmLogout">退出登录</el-button>
+                <el-dropdown trigger="click" @command="handleUserCommand">
+                    <span class="user-menu">
+                        <el-avatar :size="28" :src="auth.avatar || undefined">{{ auth.avatarText }}</el-avatar>
+                        <span class="user-greeting">{{ auth.displayName }}</span>
+                        <el-icon class="user-arrow"><ArrowDown /></el-icon>
+                    </span>
+                    <template #dropdown>
+                        <el-dropdown-menu>
+                            <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
+                            <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
             </template>
             <template v-else>
                 <router-link to="/auth/login" class="nav-link">登录</router-link>
@@ -30,18 +41,22 @@
             <p>欢迎来到心理健康AI助手 &copy; 2026</p>
         </div>
     </div>
+    <!-- 改密弹窗：与管理端 Navbar 共用同一个组件 -->
+    <ChangePasswordDialog v-model="pwdVisible" />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useLogout } from '@/composables/useLogout'
+import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute();
 const auth = useAuthStore();
 const { confirmLogout } = useLogout();
+const pwdVisible = ref(false);
 
 const logoImg = new URL('@/assets/images/机器人.png', import.meta.url).href
 
@@ -50,6 +65,15 @@ const isLogin = computed(() => auth.isLogin)
 
 // 只有首页显示 footer，路由切换自动响应
 const footerShow = computed(() => route.path === '/')
+
+// 用户菜单：修改密码 / 退出登录
+const handleUserCommand = (command) => {
+    if (command === 'logout') {
+        confirmLogout()
+    } else if (command === 'changePassword') {
+        pwdVisible.value = true
+    }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -105,6 +129,28 @@ const footerShow = computed(() => route.path === '/')
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+
+            /* 用户菜单触发器（头像 + 昵称 + 箭头），点击展开下拉 */
+            .user-menu {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                outline: none; /* Element Plus 会给触发器加 focus 描边，这里统一去掉 */
+
+                .user-arrow {
+                    font-size: 14px;
+                    color: var(--text-3);
+                    transition: color 0.2s ease;
+                }
+
+                &:hover {
+                    .user-greeting,
+                    .user-arrow {
+                        color: var(--brand);
+                    }
+                }
             }
         }
     }

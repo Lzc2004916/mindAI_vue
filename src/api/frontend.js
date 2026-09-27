@@ -15,7 +15,9 @@ export function getSessionDetail(sessionId){
     return service.get(`/psychological-chat/sessions/${sessionId}/messages`)
 }
 export function getSeeionEmotion(sessionId){
-    return service.get(`/psychological-chat/session/${sessionId}/emotion`)
+    // 单独放宽到 60s：缓存失效时后端会同步调 AI 分析（实测 1 条消息就要 ~10s，
+    // 消息多会更久），用实例默认的 10s 必然在 AI 对话后第一次刷新时超时。
+    return service.get(`/psychological-chat/session/${sessionId}/emotion`, { timeout: 60000 })
 }
 
 /* ============ 情绪日志（用户端） ============ */
