@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import { getToken, handleUnauthorized } from '@/utils/auth'
+import { authHeaders, handleUnauthorized } from '@/utils/auth'
 
 /**
  * 后端用它表达「token 层面不可用」的 code（对应后端 ResultCode.java）。
@@ -23,10 +23,12 @@ const service = axios.create({
 
 service.interceptors.request.use(
     config => {
-        // token 统一从 utils/auth 取，不再各处直接读 localStorage
-        const token = getToken()
-        if (token) {
-            config.headers['token'] = token
+        // token 统一从 utils/auth 取，不再各处直接读 localStorage。
+        // 请求头名/前缀与后端 jwt.header + jwt.token-prefix 对齐（Authorization: Bearer xxx），
+        // 不再依赖后端对旧 `token` 头的兼容分支。
+        const headers = authHeaders()
+        if (Object.keys(headers).length) {
+            Object.assign(config.headers, headers)
             return config
         }
 

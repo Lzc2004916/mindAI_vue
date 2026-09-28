@@ -82,16 +82,18 @@
  *
  * 用法：<ChangePasswordDialog v-model="visible" />，visible 为 true 时弹出。
  *
+ * 接口：POST /api/user/password（见 api/admin.js 的 changePassword）
  * 三个必须注意的点：
- *  1. 请求体字段名是 password / newPassword / confirmPassword（后端 ChangesPassword_Username），
+ *  1. 请求体字段名是 password / newPassword / confirmPassword（后端 Dto/ChangePasswordRequest），
  *     不是 oldPassword，写错后端会以「原密码不能为空」报错，很容易误判成密码填错。
- *  2. 校验规则刻意做成「前端与后端一致 + 比后端更严」：
- *     后端只校验非空与 6-50 长度，这里额外拦「必须含字母和数字」「新旧密码不能相同」，
- *     把错误在前端就暴露出来，不必白跑一次请求。
- *  3. 改密成功后要清登录态重新登录 —— 后端 logout / 改密都是「无状态」的，
- *     改密本身**不会**让已签发的旧 token 失效（UserService.changes 只更新 password 列，
- *     实测用改密前的 token 打 /api/user/current 仍是 200），旧凭据继续可用，
- *     所以这里主动清掉本地登录态，让用户拿新密码重新登录。
+ *  2. 口令规则对齐后端 UserService.PWD_PATTERN：**8-20 位 + 只能含字母和数字**，
+ *     且不能与原密码相同。规则常量统一放在 utils/password.js，改一处即可；
+ *     前端再拦一遍只是为了少跑一次必然失败的请求，不代表后端不校验。
+ *  3. 改密成功后**必须**重新登录：后端会把 user.tokenVersion +1，
+ *     已签发的旧 token 从这一刻起全部失效（过滤器会以 401 A0230 拒绝）。
+ *     后端同时在 data 里返回了**新 token** —— 理论上可以用它原地续上、
+ *     不必重新输密码；这里选择「清登录态 → 回登录页」，让用户用新密码确认一次。
+ *     （若以后想改成无感，接住返回值调 auth.login(newToken, auth.userInfo) 即可。）
  */
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
@@ -157,9 +159,10 @@ const rules = reactive({
       validator: (rule, value, callback) => {
         if (!value) return callback()
         if (!meetsPasswordPolicy(value)) {
-          return callback(new Error('新密码需同时包含字母和数字'))
+          // 直接复用政策文案：改规则时只改 utils/password.js 一处，提示不会说谎
+          return callback(new Error(PASSWORD_POLICY_TEXT))
         }
-        // 后端不校验「新旧相同」，但允许等于原密码等于没改，这里提前拦掉
+        // 新旧相同这件事后端也会拦（UserService.changePassword），前端提前拦掉省一次请求
         if (value === formData.password) {
           return callback(new Error('新密码不能与原密码相同'))
         }

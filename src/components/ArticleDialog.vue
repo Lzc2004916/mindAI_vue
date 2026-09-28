@@ -191,26 +191,37 @@ const formRef = ref()
 const btnPreview = ref(false);
 const loading = ref(false)
 const handleClose = ()=>{
-    formRef.value.resetFields()
+    formRef.value?.resetFields()
     businessId.value = null
     handleRemove()
     formData.tagArray = []
     emit('update:modelValue',false)
 }
 const handleSubmit = async ()=>{
+    // formRef 可能还没挂上（destroy-on-close 场景下刚打开就点提交）
+    if (!formRef.value) return
     const valid = await formRef.value.validate().catch(() => false)
     if (!valid) return
     loading.value = true
+    /**
+     * ⚠️ 只提交后端 DTO 认识的字段（白名单），不要 `...formData` 一把梭。
+     * 编辑模式下 watch 里做过 `Object.assign(formData, 整行实体)`，于是 formData 里
+     * 还混着 id / authorId / readCount / status / publishedAt / createdAt / updatedAt —— 
+     * 这些都会被打进请求体。后端目前靠 Jackson 忽略未知字段才没报错，
+     * 等于把「能不能提交」这件事故意挂在了框架的默认配置上，属于不该留的隐患。
+     * 顺带：tagArray 只是选择器的中间态，提交时拼成 tags 字符串。
+     */
     const submitData = {
-        ...formData,
+        title: formData.title,
+        categoryId: formData.categoryId,
+        summary: formData.summary,
+        content: formData.content,
+        coverImage: formData.coverImage,
         tags: (formData.tagArray || []).join(',')
     }
-    // tagArray 只是前端标签选择器用的，提交时已经拼成 tags 字符串，不要发给后端
-    delete submitData.tagArray
-    // 说明：新增时不需要传 id —— 后端 create() 自己用 UUID 生成主键
-    delete submitData.id
     try {
         if (!isEdit.value) {
+            // 新增：后端 create() 自己用 UUID 生成主键、并按 status 缺省为「已发布」
             await createArticle(submitData)
         } else {
             await updateArticle(props.article.id, submitData)

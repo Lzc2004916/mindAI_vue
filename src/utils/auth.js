@@ -27,6 +27,22 @@ export function getToken() {
 }
 
 /**
+ * 构造带 token 的请求头。
+ *
+ * ⚠️ 这里是**全项目唯一的鉴权头拼装处**（axios 与 SSE 都消费它）。
+ * 必须与后端 application.yml 的 `jwt.header`（Authorization）与 `jwt.token-prefix`（"Bearer "）一致：
+ * 后端 `JwtTokenUtil.extractTokenFromRequest` 优先读这两个配置，读不到才回落到旧的 `token` 头。
+ * 早先 axios 发的是 `token` 头、SSE 又手写了一遍 `'Token'`，属于「靠后端兼容分支活着」——
+ * 后端哪天删掉兼容段就会全站 401，所以统一收敛到这里。
+ *
+ * @returns {object} 无 token 时返回空对象（调用方据此判断「未登录」）
+ */
+export function authHeaders() {
+  const token = getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/**
  * 读取 userInfo。
  * 这里必须容错：本地值可能被手工改坏 / 是旧版本残留的非法 JSON，
  * 直接 JSON.parse 抛异常会把路由守卫带崩（原实现就是这个问题）。

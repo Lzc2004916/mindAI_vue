@@ -60,15 +60,15 @@ export function logout(){
 /**
  * 修改密码（当前登录用户）。
  *
- * ⚠️ 路径是后端 @PostMapping("Changes")（大写 C），与项目其余 kebab-case 风格不一致；
- *    这里按现状对齐，后端若改成 /change-password，这里同步改即可。
- * 请求体：{ password, newPassword, confirmPassword }（对应后端 ChangesPassword_Username）
- * 成功时 data 是字符串 "修改成功"。
+ * 路径：POST /api/user/password（后端 UserController @PostMapping("/password")）
+ * 请求体：{ password, newPassword, confirmPassword }（对应后端 Dto/ChangePasswordRequest）
+ * 成功时 data 是**新签发的 token 字符串**（后端 UserService.changePassword 会顺手把
+ * tokenVersion +1 并返回新 token）—— 旧 token 从这一刻起立即失效。
  *
  * 说明：和 login / logout 一样属于「用户级」接口（管理端与用户端共用同一套），
  * 所以放在这里而不是 frontend.js —— 由组件 ChangePasswordDialog.vue 统一调用。
  */
 export function changePassword(data){
-    return service.post('/user/Changes',data)
+    return service.post('/user/password',data)
 }
 

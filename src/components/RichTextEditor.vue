@@ -192,6 +192,16 @@ const handleEditorDestroyed = () => {
   editorRef.value = null
 }
 
+/**
+ * 超字数只提示「一次」。
+ * ⚠️ 原来每敲一个字都 `ElMessage.warning` 一次（onChange 每次都调本函数），
+ *    一旦超过 maxCharCount，屏幕上会持续叠一串 toast，把工具栏都盖住 ——
+ *    用户越打字越卡，还找不到关闭按钮。
+ *    这里用一个「本轮是否已提示」的开关：超过时只弹一次，回到限制内再重置，
+ *    这样「改了又超」还能再提醒一次，但不会逐字符轰炸。
+ */
+let overLimitWarned = false
+
 const updateCharCount = () => {
   if (!editorRef.value) return
   
@@ -201,7 +211,12 @@ const updateCharCount = () => {
   
   // 检查字数限制
   if (currentCharCount.value > props.maxCharCount) {
-    ElMessage.warning(`内容长度不能超过 ${props.maxCharCount} 字符`)
+    if (!overLimitWarned) {
+      overLimitWarned = true
+      ElMessage.warning(`内容长度不能超过 ${props.maxCharCount} 字符（当前 ${currentCharCount.value}）`)
+    }
+  } else {
+    overLimitWarned = false
   }
 }
 

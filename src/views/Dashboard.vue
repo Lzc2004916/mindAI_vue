@@ -101,13 +101,21 @@ let emotionChart = null
 let consultationChart = null
 let userActivityChart = null
 
-// 通用渲染函数：销毁旧实例 → 初始化 → 设置配置项
-const renderChart = (refEl, chartInstHolder, buildOption) => {
+/**
+ * 通用渲染函数：销毁旧实例 → 初始化 → 设置配置项 → **返回新实例**。
+ *
+ * ⚠️ 原实现第二个参数是「临时对象字面量」（调用处写的 `{ value: emotionChart }`），
+ *    函数内部 `chartInstHolder.value = chart` 只写进了那个临时对象，
+ *    外层的 `let emotionChart` 永远是 null →
+ *    `handleResize()` 里的 `emotionChart?.resize()` 与 `onUnmounted` 里的 `?.dispose()`
+ *    全部静默跳过：窗口缩放图表不跟随、组件卸载不释放实例（内存泄漏，切页面多次后明显）。
+ *    改成「返回实例、调用方显式赋值」后没有中间对象可以丢。
+ */
+const renderChart = (refEl, chartInst, buildOption) => {
   if (!refEl) return null
-  if (chartInstHolder.value) chartInstHolder.value.dispose()
+  chartInst?.dispose()   // dispose 幂等：实例为 null/已销毁都不会报错
   const chart = echarts.init(refEl)
   chart.setOption(buildOption())
-  chartInstHolder.value = chart
   return chart
 }
 
@@ -217,9 +225,10 @@ const buildActivityOption = () => {
 
 // 初始化所有图表
 const initCharts = () => {
-  renderChart(emotionChartRef.value, { value: emotionChart }, buildEmotionOption)
-  renderChart(consultationChartRef.value, { value: consultationChart }, buildConsultationOption)
-  renderChart(userActivityChartRef.value, { value: userActivityChart }, buildActivityOption)
+  // 必须把返回值显式赋回外层变量：resize / dispose 依赖它们
+  emotionChart = renderChart(emotionChartRef.value, emotionChart, buildEmotionOption)
+  consultationChart = renderChart(consultationChartRef.value, consultationChart, buildConsultationOption)
+  userActivityChart = renderChart(userActivityChartRef.value, userActivityChart, buildActivityOption)
 }
 
 onMounted(async () => {

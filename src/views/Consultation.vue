@@ -190,8 +190,10 @@ import { startSession, getSessionList, deleteSession, getSessionDetail, getSeeio
 import { ElMessage, ElMessageBox } from "element-plus"
 import MarkdownRenderer from "@/components/MarkdownRenderer.vue"
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-// SSE 不走 axios，鉴权头得自己带；token/登出处理统一从 utils/auth 取
-import { getToken, handleUnauthorized } from '@/utils/auth';
+// SSE 不走 axios，鉴权头得自己带；token/登出处理统一从 utils/auth 取。
+// 头名走 authHeaders()（Authorization: Bearer xxx），与 axios 那边共用一份实现，
+// 避免「axios 发 Authorization、SSE 发 token」这种两套写法再次出现。
+import { getToken, authHeaders, handleUnauthorized } from '@/utils/auth';
 
 const robotImg = new URL('@/assets/images/robot-fill.png', import.meta.url).href
 const userImg = new URL('@/assets/images/users.png', import.meta.url).href
@@ -344,21 +346,41 @@ const sendMessage = () => {
   }
 }
 
+/**
+ * 新建会话并发起第一轮对话。
+ *
+ * ⚠️ 必须自己兜住异常：调用方 `sendMessage` 是同步调它的（不 await），
+ *    接口一旦失败（401 / 500 / 断网）就是一个 unhandled rejection —— 控制台报错，
+ *    而界面上用户那条消息还留着、AI 侧什么都没有，表现为「AI 不理我」。
+ *    失败时把乐观插入的那条用户消息撤回、内容还回输入框，用户可以改完直接重发。
+ */
 const startNewSession = async (content) => {
   const sessionParams = { initialMessage: content }
   sessionParams.sessionTitle = currentSession.value?.status === 'TEMP'
     ? `宁渡AI助手 - ${new Date().toLocaleString()}`
     : currentSession.value.sessionTitle
 
-  const res = await startSession(sessionParams)
-  const sessionData = {
-    sessionId: res.sessionId,
-    status: res.status,
-    sessionTitle: sessionParams.sessionTitle
+  try {
+    const res = await startSession(sessionParams)
+    if (!res?.sessionId) throw new Error('会话创建失败')
+    const sessionData = {
+      sessionId: res.sessionId,
+      status: res.status,
+      sessionTitle: sessionParams.sessionTitle
+    }
+    currentSession.value = sessionData
+    refreshSessionList()
+    startAIResponse(sessionData.sessionId, content)
+  } catch (e) {
+    // 撤回乐观插入的用户消息（只在「确实是本次那条」时才撤，防止误删别的）
+    const last = messages.value[messages.value.length - 1]
+    if (last && last.senderType === 1 && last.content === content) {
+      messages.value.pop()
+    }
+    // 把内容还给输入框，不用用户重新打一遍
+    if (!userMessage.value) userMessage.value = content
+    // 具体原因（如"参数错误"）已由请求拦截器统一弹窗，这里不再重复提示
   }
-  currentSession.value = sessionData
-  refreshSessionList()
-  startAIResponse(sessionData.sessionId, content)
 }
 
 /**
@@ -397,7 +419,7 @@ const startAIResponse = async (sessionId, content) => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Token': getToken(),
+      ...authHeaders(),
       'Accept': 'text/event-stream'
     },
     body: JSON.stringify({ sessionId: sessionId, userMessage: content }),
@@ -558,7 +580,25 @@ const handleDeleteSession = async (sessionId) => {
   }).catch(() => {})
 }
 
-const formatMessageContent = (content) => String(content ?? '').replace(/\n/g, '<br>')
+/**
+ * 用户消息的展示（走 v-html，所以必须先转义）。
+ *
+ * ⚠️ 这里原先是 `String(content).replace(/\n/g, '<br>')` —— **完全没有转义**，
+ *    而用户输入是自由的：只要打一句 `<img src=x onerror=...>` 就会被当 HTML 执行
+ *    （自 XSS；若将来出现「他人可见」的场景就会升级为存储型 XSS），
+ *    最小可复现的破坏是输入 `<b>测试` 之后整段气泡排版错乱。
+ *    AI 回复走 MarkdownRenderer（那里有转义），但用户消息一直漏着。
+ *
+ * 顺序不能反：**先转义、再把换行变 <br>**；反过来的话生成的 <br> 也会被转义掉。
+ * 只用覆盖 & / < / > 三个字符即可（文本节点内的 " 和 ' 不需要转义）。
+ */
+const escapeHtml = (str) =>
+  String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+const formatMessageContent = (content) => escapeHtml(content).replace(/\n/g, '<br>')
 
 /**
  * 相对时间（会话列表比「2026-09-26 21:30:00」更好读）。

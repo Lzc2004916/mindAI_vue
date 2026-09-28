@@ -64,11 +64,24 @@ const loading = ref(false)
 // 校验规则复用
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^1[3-9]\d{9}$/
+/** 与后端 UserRegisterCommandDTO 的 @Pattern("^[a-zA-Z0-9_]+$") 逐字一致 */
+const USERNAME_RE = /^[a-zA-Z0-9_]+$/
 
 const rules = reactive({
   username:[
     {required: true, message: '请输入用户名', trigger: 'blur'},
-    { min: 2, max: 20, message: '用户名长度为 2-20 个字符', trigger: 'blur' }
+    // ⚠️ 必须与后端对齐：后端是 @Size(min=3, max=50) + @Pattern("^[a-zA-Z0-9_]+$")。
+    //    原来这里写的是「2-20 且不校验字符集」→ 输入 2 个字符、中文或带符号的用户名时
+    //    前端放行、后端报「用户名长度必须在3到50个字符之间」/「只能包含字母、数字和下划线」，
+    //    用户填完才被拒，属于白跑一趟。
+    { min: 3, max: 50, message: '用户名长度为 3-50 个字符', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (!value) return callback()
+        USERNAME_RE.test(value) ? callback() : callback(new Error('用户名只能包含字母、数字和下划线'))
+      },
+      trigger: 'blur'
+    }
   ],
   email:[
     {required: true, message: '请输入邮箱', trigger: 'blur'},

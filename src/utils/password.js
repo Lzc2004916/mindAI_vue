@@ -3,18 +3,20 @@
  *
  * 为什么单独抽成一个模块：
  *  1. 强度计算是纯字符串逻辑，放在组件里既不好测、也容易被复制成两三份；
- *  2. 「长度上下限」必须和后端 DTO 对齐，集中定义可以避免前后端各写一个数字、
- *     日后改了一处忘另一处（后端见 common/Dto/ChangesPassword_Username.java）。
+ *  2. 「长度上下限 + 复杂度」必须和后端校验规则**逐字对齐**，集中定义可以避免前后端各写一套、
+ *     日后改了一处忘另一处。
  *
- * 边界说明：后端只校验「非空 + 长度 6-50」，并不校验复杂度。
- * 也就是说前端这份策略是**比后端更严**的（见 meetsPasswordPolicy），
- * 目的是拦住 123456 / abcdef 这类弱口令；若哪天想放宽，只需要删掉
- * meetsPasswordPolicy 里的那两条正则判断，其余不用动。
+ * ⚠️ 规则的唯一权威在**后端**：`service/UserService.java` 的
+ *      `PWD_PATTERN = ^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{8,20}$`
+ *      （8-20 位、必须同时含字母和数字、不允许特殊字符）。
+ *      后端不满足时报 `BusionessException("新密码需 8-50 位，且同时包含字母和数字")`。
+ *      这里曾经是 6-50（前端比后端松），会出现「前端放行、后端拒绝」的割裂，已按后端对齐。
+ *      后端若调整规则，改这两行 + 端到端验证一次即可。
  */
 
-/** 与后端 @Size(min = 6, max = 50) 保持一致 */
-export const PASSWORD_MIN = 6
-export const PASSWORD_MAX = 50
+/** 与后端 UserService.PWD_PATTERN 的 {8,20} 保持一致 */
+export const PASSWORD_MIN = 8
+export const PASSWORD_MAX = 20
 
 /** 给用户看的口令规则文案（表单提示、报错信息共用一份，避免文案不一致） */
 export const PASSWORD_POLICY_TEXT = `${PASSWORD_MIN}-${PASSWORD_MAX} 个字符，且同时包含字母和数字`
@@ -40,28 +42,25 @@ const HAS_SPECIAL = /[^a-zA-Z0-9]/
 /**
  * 计算密码强度。
  *
- * 打分维度（满分 5）：
- *   长度达标(>=PASSWORD_MIN) +1；长度 >= 10 再 +1；含字母 +1；含数字 +1；含特殊字符 +1
+ * 打分维度（满分 4）：
+ *   长度达标(>=PASSWORD_MIN) +1；长度 >= 10 再 +1；含字母 +1；含数字 +1
  * 映射：score <= 2 → 弱；score == 3 → 中；score >= 4 → 强
  *
- * 分档边界是刻意这么定的：
- *  - 「弱」必须兜住 123456 / abcdef 这类典型弱口令（它们都是 2 分），
- *    所以弱的上界只能是 2；
- *  - 反过来，9 位的 Abc123!@# 已经是 4 分（字母+数字+特殊字符齐全），
- *    如果卡的 5 分才算「强」，它会被判成「中」，与直觉不符 ——
- *    所以强的下界取 4 分。
+ * ⚠️ 特殊字符**不是加分项**：后端正则的字符集是 `[a-zA-Z\d]`，
+ * 含特殊字符的密码会被后端直接拒绝，所以这里只把它作为「违规提示」列出来，不给分。
+ * （早先的版本会给特殊字符 +1 并显示「强」，与后端规则相反，属于误导。）
  *
  * 实测几档结果：
- *   '123456'      → score 2 → 弱
- *   'abcdef'      → score 2 → 弱
- *   'abc123'      → score 3 → 中
- *   'Abc123!@#'   → score 4 → 强
- *   'a1b2c3d4e5'  → score 4 → 强
- *   'a1b2c3d4e5!' → score 5 → 强
+ *   '123456'     → score 1（只有数字）      → 弱
+ *   'abcdef'     → score 1（只有字母）      → 弱
+ *   'abc123'     → score 2（长度不足 8）    → 弱   ← 与 meetsPasswordPolicy 一致地拒绝
+ *   'abc12345'   → score 3                  → 中
+ *   'a1b2c3d4e5' → score 4                  → 强
+ *   'Abc123!@#'  → score 3 + tips 提示「不能包含特殊字符」→ 中，且表单校验会拦下
  *
  * @param {string} password 待评估的密码（空值返回「弱、0 分」）
  * @returns {{level:number,label:string,color:string,score:number,tips:string[]}}
- *          tips 是「还差什么才能更强」的提示，已达标项不会出现
+ *          tips 是「还差什么」的提示，已达标项不会出现
  */
 export function evaluatePasswordStrength(password = '') {
   const pwd = String(password)
@@ -82,17 +81,24 @@ export function evaluatePasswordStrength(password = '') {
   if (HAS_DIGIT.test(pwd)) score += 1
   else tips.push('数字')
 
-  if (HAS_SPECIAL.test(pwd)) score += 1
-  else tips.push('特殊字符')
+  // 特殊字符是「违规」而不是「加分」：后端只接受字母和数字
+  if (HAS_SPECIAL.test(pwd)) {
+    tips.push('不能包含特殊字符（只能用字母和数字）')
+  }
 
   const level = score <= 2 ? 0 : score === 3 ? 1 : 2
   return { ...STRENGTH_LEVELS[level], score, tips }
 }
 
 /**
- * 是否满足前端口令策略：长度达标 + 同时包含字母和数字。
+ * 是否满足口令策略 —— 必须与后端 UserService.PWD_PATTERN 完全一致：
+ *   长度 8-20、同时含字母和数字、**只允许字母和数字**（含特殊字符一律不通过）。
+ *
  * 与 evaluatePasswordStrength 的区别：这个返回 true/false，用于表单校验（硬拦截）；
  * 强度条只做视觉提示，不参与拦截。
+ *
+ * 为什么要在这里也拦特殊字符：后端正则是 `^(?=.*[a-zA-Z])(?=.*\d)[a-zA-Z\d]{8,20}$`，
+ * 字符集里没有特殊字符，所以 `Abc123!@` 这种在前端放行、到后端必被拒。
  */
 export function meetsPasswordPolicy(password = '') {
   const pwd = String(password)
@@ -100,6 +106,7 @@ export function meetsPasswordPolicy(password = '') {
     pwd.length >= PASSWORD_MIN &&
     pwd.length <= PASSWORD_MAX &&
     HAS_LETTER.test(pwd) &&
-    HAS_DIGIT.test(pwd)
+    HAS_DIGIT.test(pwd) &&
+    !HAS_SPECIAL.test(pwd)
   )
 }
