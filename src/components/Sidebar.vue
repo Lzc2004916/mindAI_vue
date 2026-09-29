@@ -11,7 +11,7 @@
         <el-image class="brand-image" :src="iconUrl" alt="logo /"></el-image>
         <transition name="brand-fade">
           <div class="info-card" v-show="!isCollapse">
-            <h1 class="brand-title">心理健康AI助手</h1>
+            <h1 class="brand-title">聪聆</h1>
             <p class="brand-subtitle">管理后台</p>
           </div>
         </transition>

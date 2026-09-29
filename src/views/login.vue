@@ -83,6 +83,7 @@ const submitForm = async()=>{
 <style lang="scss" scoped>
 .container {
     width: 384px;
+    animation: fade-up 0.5s var(--ease-out) both;
     .title{
         .back-home{
             margin-bottom: 40px;
@@ -91,39 +92,58 @@ const submitForm = async()=>{
                 align-items: center;
                 gap: 4px;
                 font-size: 14px;
-                color: #909399;
+                color: var(--text-3);
                 text-decoration: none;
-                transition: color 0.2s ease;
+                transition: color var(--transition);
                 &:hover{
-                    color: #409eff;
+                    color: var(--brand);
                 }
             }
         }
         .title-text{
             text-align: center;
             h2{
-                font-size: 24px;
-            font-weight: bold;
-            color: #333;
+                font-size: 26px;
+                font-weight: 700;
+                color: var(--text-1);
+                margin-bottom: 8px;
             }
             p{
                 font-size: 14px;
-                color: #999;
+                color: var(--text-3);
             }
         }
     }
     .form-container{
         margin: 0 auto;
+        :deep(.el-input__wrapper) {
+            border-radius: var(--radius-md);
+            padding: 4px 14px;
+            box-shadow: 0 0 0 1px var(--border) inset;
+            transition: box-shadow var(--transition);
+            &:hover, &.is-focus {
+                box-shadow: 0 0 0 1.5px var(--brand) inset;
+            }
+        }
         .btn{
-            margin-top: 40px;
+            margin-top: 32px;
             width: 100%;
+            border-radius: var(--radius-md);
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            height: 46px;
         }
         .footer{
             text-align: center;
-            margin-top: 20px;
+            margin-top: 24px;
             p{
                 font-size: 14px;
-                color: #999;
+                color: var(--text-3);
+                a {
+                    color: var(--brand);
+                    font-weight: 500;
+                }
             }
         }
     }

@@ -290,8 +290,9 @@ onMounted(loadMine)
 .emotion-diary-page {
   height: 100%;
   overflow-y: auto;
-  background: #f7f9f8;
+  background: transparent;
   padding: 24px;
+  animation: fade-up 0.4s var(--ease-out) both;
 
   .page-container {
     max-width: 1000px;
@@ -302,8 +303,8 @@ onMounted(loadMine)
     margin-bottom: 20px;
 
     .page-title {
-      font-size: 22px;
-      font-weight: 600;
+      font-size: 24px;
+      font-weight: 700;
       color: var(--text-1);
       margin: 0 0 6px;
     }
@@ -316,14 +317,16 @@ onMounted(loadMine)
   }
 
   .card {
-    background: #fff;
-    border: 0.5px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
     margin-bottom: 20px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow var(--transition);
 
     .card-title {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 600;
       color: var(--text-1);
       margin: 0 0 16px;

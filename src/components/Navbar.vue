@@ -15,6 +15,9 @@
             </div>
             <template #dropdown>
                 <el-dropdown-menu>
+                    <el-dropdown-item command="theme">
+                        主题设置
+                    </el-dropdown-item>
                     <el-dropdown-item command="changePassword">
                         修改密码
                     </el-dropdown-item>
@@ -34,12 +37,14 @@ import { ref } from 'vue';
 import { Expand } from '@element-plus/icons-vue';
 import { useAdminStore } from '@/stores/admin'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { useLogout } from '@/composables/useLogout'
 import { useRoute } from 'vue-router'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 const route = useRoute();
 const adminStore = useAdminStore();
 const auth = useAuthStore();
+const theme = useThemeStore();
 const { confirmLogout } = useLogout();
 const pwdVisible = ref(false);
 
@@ -48,6 +53,8 @@ const handleCommand = (command) => {
         confirmLogout()
     } else if (command === 'changePassword') {
         pwdVisible.value = true
+    } else if (command === 'theme') {
+        theme.openSettings()
     }
 }
 const handleCollapse = ()=>{

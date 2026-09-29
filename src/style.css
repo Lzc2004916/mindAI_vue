@@ -1,31 +1,64 @@
 /**
- * 全局样式
+ * 全局样式 · 现代治愈薄荷设计系统（Modern Healing）
  *
- * 品牌色统一在这里定义（2026-09-26 统一）。
- * 之前是「青绿 rgb(74,156,140)」和「蓝 #4A90E2」两套主色并存，
- * 现在统一到治愈薄荷绿 #0f6e56 一系（与 Consultation.vue 的「情绪花园」一致）。
- * 组件里一律用 var(--brand*) 引用，不要再写死色值。
+ * 品牌色以 #0f6e56 为核心，扩展为完整色板层级。
+ * 所有页面统一通过 var(--*) 引用，不要再写死色值。
+ * 原则：柔和、有呼吸感、低对比 —— 心理健康产品不能有锐利/警示感。
  */
 :root {
-  --brand: #0f6e56;          /* 主色 */
-  --brand-weak: #1d9e75;     /* 主色浅一档：hover / 强调 */
-  --brand-bg: #e1f5ee;       /* 主色浅底：色块、头像底 */
-  --brand-hover-bg: #f0faf6; /* 极浅底：hover 行、幽灵按钮 */
+  /* ===== 品牌色板 ===== */
+  --brand: #0f6e56;            /* 主色 */
+  --brand-weak: #1d9e75;       /* 主色浅一档：hover / 强调 */
+  --brand-bg: #e1f5ee;         /* 主色浅底：色块、头像底 */
+  --brand-hover-bg: #f0faf6;   /* 极浅底：hover 行、幽灵按钮 */
   --brand-grad-135: linear-gradient(135deg, #1d9e75 0%, #0f6e56 100%);
   --brand-grad-90: linear-gradient(90deg, #1d9e75 0%, #0f6e56 100%);
 
-  --text-1: #1f2937;
-  --text-2: #4b5563;
-  --text-3: #9ca3af;
-  --border: #e5e7eb;
+  /* 扩展色阶（供新组件按层级取用） */
+  --brand-50: #ecf7f3;
+  --brand-100: #d3ece3;
+  --brand-200: #a7d9c8;
+  --brand-300: #76c0a8;
+  --brand-400: #3fa186;
+  --brand-500: #0f6e56;
+  --brand-600: #0c5a47;
+  --brand-700: #0a4a3b;
 
-  /**
-   * 让 Element Plus 的主色也走品牌绿。
-   * 不覆盖的话，`type="primary"` 的按钮/链接/分页高亮仍然是默认蓝 #409eff，
-   * 就还是「青绿 + 蓝」两套主色并存。
-   * light-N 是把主色按 N*10% 与白色混合、dark-2 是与黑色混合 20% 得到的，
-   * Element Plus 靠这几个变量派生 hover / disabled / plain 等状态。
-   */
+  /* 辅助色：温暖点缀（桃色，用于情绪/提示，不抢主色） */
+  --accent-peach: #f2a68a;
+  --accent-soft: #fbe9e1;
+
+  /* ===== 背景层级 ===== */
+  --bg-app: #f4f7f6;           /* 页面底色（比原 #f1f4f6 更暖一点） */
+  --bg-card: #ffffff;
+  --bg-soft: #eef4f1;
+
+  /* ===== 文字层级 ===== */
+  --text-1: #1f2d29;           /* 主标题：偏暖墨色，不用纯黑 */
+  --text-2: #4b5d57;
+  --text-3: #8a9a94;
+  --border: #e3ebe8;
+  --border-strong: #cfdcd7;
+
+  /* ===== 圆角系统 ===== */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  /* ===== 柔和阴影（带绿色调，不发灰） ===== */
+  --shadow-sm: 0 1px 2px rgba(15, 110, 86, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 110, 86, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 110, 86, 0.12);
+  --shadow-card: 0 2px 12px rgba(15, 110, 86, 0.06);
+
+  /* ===== 动效 ===== */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --transition: 0.25s var(--ease-out);
+
+  /* ===== Element Plus 主色覆盖 ===== */
   --el-color-primary: #0f6e56;
   --el-color-primary-light-3: #579a89;
   --el-color-primary-light-5: #87b7ab;
@@ -51,11 +84,7 @@ time, mark, audio, video {
   padding: 0;
   border: 0;
   outline: 0;
-  /* font-size:100%; */
   vertical-align: baseline;
-  /* 注意：这里特意不写 background: transparent ——
-     它会作用到「所有」元素上，把组件库（Element Plus）自己的背景一并洗掉，
-     排查样式问题时非常迷惑。常规 reset 只清 margin/padding/box-sizing 即可。 */
 }
 
 *,
@@ -66,6 +95,7 @@ time, mark, audio, video {
 
 a {
   text-decoration: none;
+  transition: color var(--transition);
 }
 
 li {
@@ -74,8 +104,13 @@ li {
 
 body {
   height: 100vh;
-  background-color: #f1f4f6;
+  background-color: transparent;
   color: var(--text-1);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
@@ -88,10 +123,31 @@ body {
   border-bottom: 1px solid transparent;
 }
 
-/* 表格空态（全站统一文案风格）
-   Element Plus 的 el-table 支持 #empty 插槽，这里给个默认样式；
-   具体文案由各页面通过插槽自定义。 */
+/* 表格空态 */
 .el-table__empty-text {
   color: var(--text-3);
   font-size: 13px;
+}
+
+/* ===== 通用卡片工具类（C 端页面复用） ===== */
+.soft-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* 页面进入的柔和动画 */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.5s var(--ease-out) both;
 }

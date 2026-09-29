@@ -3,7 +3,7 @@
     <div class="navbar-container">
         <div class="brand-section">
             <el-image :src="logoImg" alt="logo" class="brand-logo" style="width: 50px; height: 50px;"></el-image>
-            <h1 class="brand-name">心理健康AI助手</h1>
+            <h1 class="brand-name">聪聆</h1>
         </div>
         <div class="nav-section">
             <router-link to="/" class="nav-link">首页</router-link>
@@ -19,6 +19,7 @@
                     </span>
                     <template #dropdown>
                         <el-dropdown-menu>
+                            <el-dropdown-item command="theme">主题设置</el-dropdown-item>
                             <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
                             <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
                         </el-dropdown-menu>
@@ -38,7 +39,7 @@
     </div>
     <div class="footer-container" v-if="footerShow">
         <div class="footer-bottom">
-            <p>欢迎来到心理健康AI助手 &copy; 2026</p>
+            <p>欢迎来到聪聆 &copy; 2026</p>
         </div>
     </div>
     <!-- 改密弹窗：与管理端 Navbar 共用同一个组件 -->
@@ -51,10 +52,12 @@ import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useLogout } from '@/composables/useLogout'
+import { useThemeStore } from '@/stores/theme'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute();
 const auth = useAuthStore();
+const theme = useThemeStore();
 const { confirmLogout } = useLogout();
 const pwdVisible = ref(false);
 
@@ -66,12 +69,14 @@ const isLogin = computed(() => auth.isLogin)
 // 只有首页显示 footer，路由切换自动响应
 const footerShow = computed(() => route.path === '/')
 
-// 用户菜单：修改密码 / 退出登录
+// 用户菜单：主题设置 / 修改密码 / 退出登录
 const handleUserCommand = (command) => {
     if (command === 'logout') {
         confirmLogout()
     } else if (command === 'changePassword') {
         pwdVisible.value = true
+    } else if (command === 'theme') {
+        theme.openSettings()
     }
 }
 </script>
@@ -82,48 +87,69 @@ const handleUserCommand = (command) => {
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
-    background-color: #fff;
+    background-color: transparent;
 
     .navbar-container {
         flex-shrink: 0;
         max-width: 1200px;
         width: 100%;
         margin: 0 auto;
-        padding: 10px;
+        padding: 12px 16px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: saturate(180%) blur(12px);
+        border-bottom: 1px solid var(--border);
+        border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 
         .brand-section {
             display: flex;
             align-items: center;
 
+            .brand-logo {
+                border-radius: var(--radius-md);
+            }
+
             .brand-name {
                 margin-left: 10px;
-                font-size: 24px;
-                font-weight: 600;
-                color: #333;
+                font-size: 20px;
+                font-weight: 700;
+                color: var(--brand-700);
+                letter-spacing: 0.5px;
             }
         }
 
         .nav-section {
             display: flex;
             align-items: center;
-            gap: 40px;
+            gap: 8px;
 
             .nav-link {
-                color: #4b5563;
-                font-size: 16px;
+                color: var(--text-2);
+                font-size: 15px;
                 font-weight: 500;
+                padding: 8px 14px;
+                border-radius: var(--radius-pill);
+                transition: all var(--transition);
 
                 &:hover {
                     color: var(--brand);
+                    background: var(--brand-50);
                 }
             }
 
+            /* Vue Router 默认加两个 class：
+               · router-link-exact-active  完全匹配当前路由（用这个做高亮）
+               · router-link-active         包含匹配（会让首页 / 在所有页面都命中，不能用它） */
+            .nav-link.router-link-exact-active {
+                color: #fff;
+                background: var(--brand);
+            }
+
             .user-greeting {
-                color: #4b5563;
-                font-size: 16px;
+                color: var(--text-1);
+                font-size: 15px;
                 font-weight: 500;
                 max-width: 120px;
                 overflow: hidden;
@@ -131,25 +157,29 @@ const handleUserCommand = (command) => {
                 white-space: nowrap;
             }
 
-            /* 用户菜单触发器（头像 + 昵称 + 箭头），点击展开下拉 */
             .user-menu {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
                 cursor: pointer;
-                outline: none; /* Element Plus 会给触发器加 focus 描边，这里统一去掉 */
+                padding: 6px 12px;
+                border-radius: var(--radius-pill);
+                transition: background var(--transition);
+                outline: none;
+
+                &:hover {
+                    background: var(--brand-50);
+
+                    .user-greeting,
+                    .user-arrow {
+                        color: var(--brand);
+                    }
+                }
 
                 .user-arrow {
                     font-size: 14px;
                     color: var(--text-3);
                     transition: color 0.2s ease;
-                }
-
-                &:hover {
-                    .user-greeting,
-                    .user-arrow {
-                        color: var(--brand);
-                    }
                 }
             }
         }
@@ -163,9 +193,11 @@ const handleUserCommand = (command) => {
 
     .footer-container {
         flex-shrink: 0;
-        background: #1f2937;
-        color: white;
-        padding: 15px 0;
+        background: var(--brand-700);
+        color: rgba(255, 255, 255, 0.85);
+        padding: 16px 0;
+        font-size: 13px;
+        letter-spacing: 0.3px;
         .footer-bottom {
             max-width: 1200px;
             margin: 0 auto;

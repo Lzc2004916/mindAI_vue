@@ -7,7 +7,7 @@
       <!-- 机器人头像（顶部，带光晕与浮动动画） -->
       <div class="robot">
         <div class="robot-ring"></div>
-        <el-image :src="robotImg" class="robot-img" alt="心理Ai助手"></el-image>
+        <el-image :src="robotImg" class="robot-img" alt="聪聆"></el-image>
       </div>
 
       <!-- 标题 -->
@@ -39,7 +39,10 @@ const robotImg = new URL('@/assets/images/robot-fill.png',import.meta.url).href
 <style lang="scss" scoped>
 .home-container {
   position: relative;
-  background: var(--brand-grad-135);
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.2) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(167, 217, 200, 0.3) 0%, transparent 45%),
+    var(--brand-grad-135);
   color: #fff;
   height: 100%;
   display: flex;
@@ -47,15 +50,14 @@ const robotImg = new URL('@/assets/images/robot-fill.png',import.meta.url).href
   justify-content: center;
   overflow: hidden;
 
-  // 顶部柔光装饰
   .bg-glow {
     position: absolute;
     top: -120px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-100%);
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 60%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%);
     pointer-events: none;
   }
 
@@ -67,8 +69,8 @@ const robotImg = new URL('@/assets/images/robot-fill.png',import.meta.url).href
     align-items: center;
     text-align: center;
     padding: 0 20px;
+    animation: fade-up 0.7s var(--ease-out) both;
 
-    // 机器人头像
     .robot {
       position: relative;
       width: 220px;
@@ -78,14 +80,14 @@ const robotImg = new URL('@/assets/images/robot-fill.png',import.meta.url).href
       justify-content: center;
       margin-bottom: 36px;
 
-      // 外圈光晕环
       .robot-ring {
         position: absolute;
         inset: 0;
         border-radius: 50%;
-        border: 2px solid rgba(255, 255, 255, 0.25);
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        border: 1.5px solid rgba(255, 255, 255, 0.3);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 100%);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(6px);
         animation: float 4s ease-in-out infinite;
       }
 
@@ -98,46 +100,57 @@ const robotImg = new URL('@/assets/images/robot-fill.png',import.meta.url).href
       }
     }
 
-    // 标题
     .title {
-      font-size: 42px;
-      font-weight: bold;
-      line-height: 1.3;
+      font-size: 44px;
+      font-weight: 700;
+      line-height: 1.35;
+      letter-spacing: 1px;
       margin: 0 0 20px 0;
 
       .highlight-text {
-        color: #ffd700;
+        color: #ffe8d6;
+        position: relative;
       }
     }
 
-    // 描述
     .description {
       max-width: 560px;
       font-size: 16px;
-      line-height: 1.8;
-      color: rgba(255, 255, 255, 0.88);
-      margin: 0 0 36px 0;
+      line-height: 1.9;
+      color: rgba(255, 255, 255, 0.9);
+      margin: 0 0 40px 0;
     }
 
-    // 按钮
     .hero-actions {
       display: flex;
-      gap: 20px;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
 
       :deep(.el-button) {
-        --el-button-bg-color: rgba(255, 255, 255, 0.15);
-        --el-button-border-color: rgba(255, 255, 255, 0.4);
+        --el-button-bg-color: rgba(255, 255, 255, 0.16);
+        --el-button-border-color: rgba(255, 255, 255, 0.45);
         --el-button-text-color: #fff;
-        --el-button-hover-bg-color: rgba(255, 255, 255, 0.25);
-        --el-button-hover-border-color: rgba(255, 255, 255, 0.6);
+        --el-button-hover-bg-color: rgba(255, 255, 255, 0.28);
+        --el-button-hover-border-color: rgba(255, 255, 255, 0.7);
         --el-button-hover-text-color: #fff;
-        padding: 12px 28px;
+        padding: 14px 30px;
+        border-radius: var(--radius-pill);
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        backdrop-filter: blur(8px);
+        transition: all var(--transition);
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
       }
     }
   }
 }
 
-// 浮动动画
 @keyframes float {
   0%, 100% {
     transform: translateY(0);

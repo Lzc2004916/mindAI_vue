@@ -8,7 +8,7 @@
           <img :src="robotImg" alt="AI助手" />
         </div>
         <div class="ai-meta">
-          <h3>宁渡AI助手</h3>
+          <h3>聪聆</h3>
           <p class="online"><span class="dot"></span>在线服务中</p>
         </div>
       </section>
@@ -121,8 +121,8 @@
       <header class="chat-header">
         <div class="chat-info">
           <!-- 落实文档 2.1：头部标题跟随当前会话，避免与左栏列表项「各说各话」 -->
-          <h2 :title="currentSession?.sessionTitle || '宁渡AI助手'">
-            {{ currentSession?.sessionTitle || '宁渡AI助手' }}
+          <h2 :title="currentSession?.sessionTitle || '聪聆'">
+            {{ currentSession?.sessionTitle || '聪聆' }}
           </h2>
           <p>您贴心的AI心理助手</p>
         </div>
@@ -136,7 +136,7 @@
           <div class="msg ai" v-if="messages.length === 0">
             <div class="avatar"><img :src="robotImg" alt="AI" /></div>
             <div class="bubble">
-              <p>欢迎来到宁渡AI助手，我是您的心理助手，我可以帮助您管理您的情绪和压力。</p>
+              <p>欢迎来到聪聆，我会在这里听你说，陪你一起梳理情绪和压力。</p>
               <span class="time">刚刚</span>
             </div>
           </div>
@@ -357,7 +357,7 @@ const sendMessage = () => {
 const startNewSession = async (content) => {
   const sessionParams = { initialMessage: content }
   sessionParams.sessionTitle = currentSession.value?.status === 'TEMP'
-    ? `宁渡AI助手 - ${new Date().toLocaleString()}`
+    ? `聪聆 - ${new Date().toLocaleString()}`
     : currentSession.value.sessionTitle
 
   try {
