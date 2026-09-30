@@ -66,7 +66,7 @@ export function logout(){
  * tokenVersion +1 并返回新 token）—— 旧 token 从这一刻起立即失效。
  *
  * 说明：和 login / logout 一样属于「用户级」接口（管理端与用户端共用同一套），
- * 所以放在这里而不是 frontend.js —— 由组件 ChangePasswordDialog.vue 统一调用。
+ * 所以放在这里而不是 frontend.js —— 由页面 ChangePassword.vue 统一调用。
  */
 export function changePassword(data){
     return service.post('/user/password',data)

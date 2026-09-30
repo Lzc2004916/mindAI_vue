@@ -19,7 +19,6 @@
                     </span>
                     <template #dropdown>
                         <el-dropdown-menu>
-                            <el-dropdown-item command="theme">主题设置</el-dropdown-item>
                             <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
                             <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
                         </el-dropdown-menu>
@@ -35,31 +34,39 @@
         </div>
     </div>
     <div class="main-container">
-        <router-view></router-view>
+        <router-view v-slot="{ Component, route }">
+            <transition :name="transitionName" mode="out-in" appear>
+                <component :is="Component" :key="route.path" />
+            </transition>
+        </router-view>
     </div>
     <div class="footer-container" v-if="footerShow">
         <div class="footer-bottom">
             <p>欢迎来到聪聆 &copy; 2026</p>
         </div>
     </div>
-    <!-- 改密弹窗：与管理端 Navbar 共用同一个组件 -->
-    <ChangePasswordDialog v-model="pwdVisible" />
-  </div>
+    </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router'
+import { onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useLogout } from '@/composables/useLogout'
-import { useThemeStore } from '@/stores/theme'
-import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute();
+
+// 记录「上一跳是否来自带转场的路由」，保证详情页返回上级时也有离开动画
+const leavingHasTransition = ref(false)
+onBeforeRouteUpdate((to, from) => {
+  leavingHasTransition.value = from.meta.transition === true
+})
+const transitionName = computed(() =>
+  route.meta.transition || leavingHasTransition.value ? 'page' : ''
+)
 const auth = useAuthStore();
-const theme = useThemeStore();
 const { confirmLogout } = useLogout();
-const pwdVisible = ref(false);
+const router = useRouter();
 
 const logoImg = new URL('@/assets/images/机器人.png', import.meta.url).href
 
@@ -69,14 +76,12 @@ const isLogin = computed(() => auth.isLogin)
 // 只有首页显示 footer，路由切换自动响应
 const footerShow = computed(() => route.path === '/')
 
-// 用户菜单：主题设置 / 修改密码 / 退出登录
+// 用户菜单：修改密码 / 退出登录
 const handleUserCommand = (command) => {
     if (command === 'logout') {
         confirmLogout()
     } else if (command === 'changePassword') {
-        pwdVisible.value = true
-    } else if (command === 'theme') {
-        theme.openSettings()
+        router.push('/change-password')
     }
 }
 </script>

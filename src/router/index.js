@@ -41,6 +41,31 @@ const backendRouter = [
           icon: "User",
         },
       },
+      {
+        path: "consultations/:sessionId",
+        component: () => import("@/views/ConsultationDetail.vue"),
+        meta: { title: "咨询会话详情", transition: true },
+      },
+      {
+        path: "emotional/:id",
+        component: () => import("@/views/EmotionalDetail.vue"),
+        meta: { title: "情绪日志详情", transition: true },
+      },
+      {
+        path: "knowledge/create",
+        component: () => import("@/views/ArticleEdit.vue"),
+        meta: { title: "新增文章", transition: true },
+      },
+      {
+        path: "knowledge/edit/:id",
+        component: () => import("@/views/ArticleEdit.vue"),
+        meta: { title: "编辑文章", transition: true },
+      },
+      {
+        path: "change-password",
+        component: () => import("@/views/ChangePassword.vue"),
+        meta: { title: "修改密码", transition: true },
+      },
     ],
   },
   {
@@ -97,6 +122,16 @@ const frontendRouter = [
         meta: {
           title: "知识库",
         },
+      },
+      {
+        path: "knowledge/detail/:id",
+        component: () => import("@/views/frontendArticleDetail.vue"),
+        meta: { title: "文章详情", transition: true },
+      },
+      {
+        path: "change-password",
+        component: () => import("@/views/ChangePassword.vue"),
+        meta: { title: "修改密码", transition: true },
       }
     ],
   },

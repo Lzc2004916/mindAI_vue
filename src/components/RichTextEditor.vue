@@ -269,6 +269,19 @@ watch(() => props.placeholder, (newPlaceholder) => {
   editorConfig.placeholder = newPlaceholder
 })
 
+// 回显：监听 modelValue 变化并同步进编辑器。
+// 编辑页面中文章内容是异步加载后才通过 :model-value 传入的（编辑器 created 时内容还是空），
+// 若不同步，编辑已有文章时内容区会一直空白。用内容比对避免用户正常输入时光标被重置。
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (editorRef.value && val !== editorRef.value.getHtml()) {
+      editorRef.value.setHtml(val || '')
+      updateCharCount()
+    }
+  }
+)
+
 // 组件销毁时清理
 onBeforeUnmount(() => {
   if (editorRef.value) {

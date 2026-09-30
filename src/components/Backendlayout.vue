@@ -5,7 +5,13 @@
       <el-container direction="vertical">
         <Navbar></Navbar>
         <el-main>
-          <router-view class="content-container"></router-view>
+          <div class="content-container">
+            <router-view v-slot="{ Component, route }">
+              <transition :name="transitionName" mode="out-in" appear>
+                <component :is="Component" :key="route.path" />
+              </transition>
+            </router-view>
+          </div>
         </el-main>
       </el-container>
     </el-container>
@@ -13,8 +19,21 @@
 </template>
 
 <script setup>
+import { computed, ref } from 'vue'
+import { onBeforeRouteUpdate, useRoute } from 'vue-router'
 import Sidebar from './Sidebar.vue'
 import Navbar from './Navbar.vue'
+
+const route = useRoute()
+
+// 记录「上一跳是否来自带转场的路由」，保证详情页返回上级时也有离开动画
+const leavingHasTransition = ref(false)
+onBeforeRouteUpdate((to, from) => {
+  leavingHasTransition.value = from.meta.transition === true
+})
+const transitionName = computed(() =>
+  route.meta.transition || leavingHasTransition.value ? 'page' : ''
+)
 </script>
 <style lang="scss" scoped>
 .backend-layout{

@@ -31,66 +31,23 @@
       layout="prev, pager, next"
       @current-change="handlePageChange"
     />
-    <el-dialog
-    v-model="showDetailDialog"
-    title="咨询会话详情"
-    width="70%"
-    :close-on-click-modal="false"
-    >
-    <div class="session-detail">
-      <div class="detail-header">
-        <div class="detail-row">
-          <div class="detail-label">用户：</div>
-          <div class="detail-value">{{ sessionDetail.userNickname }}</div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-label">开始时间：</div>
-          <div class="detail-value">{{ sessionDetail.startedAt }}</div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-label">消息数：</div>
-          <div class="detail-value">{{ sessionDetail.messageCount }}</div>
-        </div>
-      </div>
-      <div class="messages-container">
-        <div class="message-header">
-          <h4>对话记录</h4>
-        </div>
-        <div class="messages-list" v-loading="loadingMessages">
-        <div v-for="item in seeionMessages" :key="item.id" class="message-item" 
-        :class="item.senderType === 1 ?  'user-message' :  'ai-message'">
-        <div class="message-header">
-          <span class="sender">{{ item.senderType === 1 ? '用户' : 'AI助手' }}</span>
-          <span class="time">{{ item.createdAt }}</span>
-        </div>
-        <div class="message-content">
-          {{ item.content }}
-        </div>
-        </div>
-      </div>
-      </div>
     </div>
-    <template #footer>
-      <el-button @click="showDetailDialog = false">关闭</el-button>
-    </template>
-    </el-dialog>
-  </div>
 </template>
 
 <script setup>
 import { ref,onMounted, reactive } from "vue"
+import { useRouter } from "vue-router"
 import PageHead from "@/components/PageHead.vue"
-import { getConsultationPage,getSeeionDetail } from "@/api/admin";
+import { getConsultationPage } from "@/api/admin";
+import { useDetailStore } from "@/stores/detail";
 const tableData = ref([])
 const pagination = reactive({
     currentPage: 1,
     pageSize: 10,
     total: 0,
 })
-const loadingMessages = ref(false)
-const showDetailDialog = ref(false)
-const seeionMessages = ref([])
-const sessionDetail = ref({})
+const router = useRouter()
+const detailStore = useDetailStore()
 /**
  * 拉取会话列表。
  *
@@ -121,29 +78,14 @@ const handlePageChange = (page) => {
     pagination.currentPage = page
     handleSearch()
 }
-/**
- * 打开会话详情。
- * ⚠️ 原来 loadingMessages 在 await 之前置 true、之后置 false，中间的 await 没有 try ——
- *    消息接口一旦失败（会话被删 / 401 / 500），loading 会永远停在 true，弹窗里一直转圈。
- *    改成 try/finally：无论成败都收掉 loading。
- */
-const viewSeesionDetail = async (row) => {
-    sessionDetail.value = row
-    seeionMessages.value = []
-    loadingMessages.value = true
-    showDetailDialog.value = true
-    try {
-        seeionMessages.value = (await getSeeionDetail(row.id)) || []
-    } catch (e) {
-        seeionMessages.value = []
-    } finally {
-        loadingMessages.value = false
-    }
+// 详情：跳转到独立详情页，整条记录经 store 零丢失传过去
+const viewSeesionDetail = (row) => {
+    detailStore.setCurrent(row)
+    router.push(`/back/consultations/${row.id}`)
 }
 onMounted(()=>{
     handleSearch()
 })
-//详情
 </script>
 
 <style lang="scss" scoped>
@@ -161,98 +103,5 @@ onMounted(()=>{
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-  }
-  .session-detail {
-    max-height: 70vh;
-    overflow-y: auto;
-    .detail-header {
-      margin-bottom: 20px;
-      padding: 16px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border: 1px solid #e9ecef;
-    }
-
-    .detail-row {
-      display: flex;
-      align-items: center;
-      margin-bottom: 8px;
-      :last-child {
-        margin-bottom: 0;
-      }
-      .detail-label {
-        font-weight: 500;
-        color: #495057;
-        min-width: 80px;
-        margin-right: 8px;
-      }
-
-      .detail-value {
-        color: #333;
-      }
-    }
-  }
-  .messages-container {
-    margin-top: 20px;
-    .messages-header {
-      margin-bottom: 16px;
-      h4 {
-        margin: 0;
-        color: #333;
-        font-size: 16px;
-        font-weight: 500;
-      }
-    }
-    .messages-list {
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 16px;
-      background: #fff;
-      .message-item {
-        margin-bottom: 12px;
-        padding: 12px;
-        border-radius: 8px;
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        :last-child {
-          margin-bottom: 0;
-        }
-        &.user-message {
-          background: #e8f4fd;
-        }
-
-        &.ai-message {
-          background: #f0f9f0;
-        }
-      }
-      .message-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-        .sender {
-          font-weight: 500;
-          color: #333;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .time {
-          font-size: 12px;
-          color: #999;
-        }
-
-        .message-content {
-          color: #333;
-          line-height: 1.6;
-          white-space: pre-wrap;
-          margin-top: 8px;
-          font-size: 14px;
-        }
-      }
-    }
   }
 </style>

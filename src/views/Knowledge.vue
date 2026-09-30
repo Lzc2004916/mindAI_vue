@@ -62,16 +62,16 @@
          :total="pagination.total"
          @current-change="handleChange"
          />
-       <ArticleDialog v-model:modelValue="dialogVisible" :article = "currentArticle" :categories="categories" @success="handleSuccess" />
-  </div>
+       </div>
 </template>
 
 <script setup>
 import { onMounted,reactive,ref } from "vue"
+import { useRouter } from "vue-router"
 import PageHead from '@/components/PageHead.vue'
 import TableSearch from '@/components/TableSearch.vue';
 import { categoryTree,articlePage,changeArtocleStatus,deleteArticle } from "@/api/admin";
-import ArticleDialog from "@/components/ArticleDialog.vue";
+import { useDetailStore } from "@/stores/detail";
 import { ElMessageBox,ElMessage } from "element-plus";
 
 // 用 reactive：TableSearch 内部会按 formItem 映射渲染，
@@ -117,7 +117,8 @@ const pagination = reactive({
 
 const tableData = ref([])
 const loading = ref(false)
-const dialogVisible = ref(false)
+const router = useRouter()
+const detailStore = useDetailStore()
 
 // 记住上一次的查询条件：翻页时不带条件会把筛选「翻丢」
 const lastFormData = ref({})
@@ -184,20 +185,18 @@ onMounted(async () => {
     loadList()
 })
 
-const handleSuccess = ()=>{
-    dialogVisible.value = false
-    loadList()
-}
-const currentArticle = ref(null)
-
 /**
- * 编辑：直接用列表行数据填表单。
- * 列表接口返回的就是完整实体（含 content / coverImage / tags 等），
- * 没必要再请求一次详情（原实现每次都调 getArticleDetail，是白跑一趟）。
+ * 新增/编辑：跳转到独立文章编辑页。
+ * 编辑时把列表整行实体经 store 零丢失传过去（列表接口已含 content / coverImage / tags 等完整字段），
+ * 新增走 /create 空表单，不再依赖 ArticleDialog 弹窗。
  */
-const handleEdit = (row)=>{
-  currentArticle.value = row?.id ? { ...row } : null
-  dialogVisible.value = true
+const handleEdit = (row) => {
+  if (row?.id) {
+    detailStore.setCurrent({ ...row })
+    router.push(`/back/knowledge/edit/${row.id}`)
+  } else {
+    router.push('/back/knowledge/create')
+  }
 }
 
 const handlePublish = (row)=>{

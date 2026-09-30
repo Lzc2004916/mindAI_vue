@@ -68,6 +68,20 @@
   --el-color-primary-dark-2: #0c5845;
 }
 
+/* ===== 页面转场动画（RoutePage 详情页 / 标记 transition 的路由） ===== */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.25s var(--ease-soft), transform 0.25s var(--ease-soft);
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
 html, body, div, span, object, iframe,
 h1, h2, h3, h4, h5, h6, p, blockquote, pre,
 abbr, address, cite, code,

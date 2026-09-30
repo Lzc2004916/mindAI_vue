@@ -88,27 +88,7 @@
       </template>
     </div>
 
-    <!-- 文章详情 -->
-    <el-dialog v-model="detailVisible" :title="current.title || '文章详情'" width="760px" destroy-on-close>
-      <div v-loading="detailLoading" class="detail-body">
-        <div class="detail-meta">
-          <el-tag v-if="categoryName(current.categoryId)" size="small" type="info">
-            {{ categoryName(current.categoryId) }}
-          </el-tag>
-          <span v-if="current.publishedAt">{{ formatDate(current.publishedAt) }}</span>
-          <span v-if="current.readCount !== undefined && current.readCount !== null">
-            阅读 {{ current.readCount }}
-          </span>
-        </div>
-        <p v-if="current.summary" class="detail-summary">{{ current.summary }}</p>
-        <!-- 后台富文本编辑器产出的 HTML，按 HTML 渲染 -->
-        <div class="detail-content" v-html="current.content"></div>
-      </div>
-      <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-  </div>
+    </div>
 </template>
 
 <script setup>
@@ -116,7 +96,8 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { fileBaseUrl } from '@/config'
-import { getKnowledgeCategories, getKnowledgeArticlePage, getKnowledgeArticleDetail } from '@/api/frontend'
+import { getKnowledgeCategories, getKnowledgeArticlePage } from '@/api/frontend'
+import { useDetailStore } from '@/stores/detail'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -131,9 +112,7 @@ const pageNum = ref(1)
 const pageSize = ref(9)
 const total = ref(0)
 
-const detailVisible = ref(false)
-const detailLoading = ref(false)
-const current = ref({})
+const detailStore = useDetailStore()
 
 const goLogin = () => router.push('/auth/login')
 
@@ -188,19 +167,10 @@ const handlePageChange = (page) => {
   loadArticles()
 }
 
-const openDetail = async (item) => {
-  current.value = { ...item }
-  detailVisible.value = true
-  detailLoading.value = true
-  try {
-    // 列表里已有 title/summary，详情接口主要是为了拿完整 content
-    const detail = await getKnowledgeArticleDetail(item.id)
-    if (detail) current.value = detail
-  } catch (e) {
-    // 失败时退回用列表数据展示
-  } finally {
-    detailLoading.value = false
-  }
+// 点击文章：跳转到独立详情页，整条记录经 store 零丢失传过去
+const openDetail = (item) => {
+  detailStore.setCurrent(item)
+  router.push(`/knowledge/detail/${item.id}`)
 }
 
 onMounted(async () => {
@@ -389,39 +359,6 @@ onMounted(async () => {
     margin-top: 16px;
     display: flex;
     justify-content: flex-end;
-  }
-
-  .detail-body {
-    min-height: 120px;
-
-    .detail-meta {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 12px;
-      color: var(--text-3);
-      margin-bottom: 12px;
-    }
-
-    .detail-summary {
-      margin: 0 0 16px;
-      padding: 10px 12px;
-      font-size: 13px;
-      line-height: 1.7;
-      color: var(--text-2);
-      background: var(--brand-hover-bg);
-      border-radius: 8px;
-    }
-
-    .detail-content {
-      font-size: 14px;
-      line-height: 1.8;
-      color: var(--text-1);
-
-      :deep(img) {
-        max-width: 100%;
-      }
-    }
   }
 }
 </style>
