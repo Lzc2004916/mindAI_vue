@@ -33,6 +33,10 @@ export function saveEmotionDiary(data){
 export function getMyEmotionDiaries(month){
     return service.get('/emotion-diary/mine',{ params: month ? { month } : {} })
 }
+/** 删除自己的日记 */
+export function deleteEmotionDiary(diaryId){
+    return service.delete('/emotion-diary/delete', { params: { diaryId } })
+}
 
 /* ============ 知识库（用户端，均为登录后可见） ============ */
 /** 分类：后端返回的是平铺列表（不是树） */

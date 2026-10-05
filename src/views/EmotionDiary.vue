@@ -115,6 +115,12 @@
               <div class="diary-right">
                 <span v-if="item.sleepQuality">睡眠 {{ item.sleepQuality }}/5</span>
                 <span v-if="item.stressLevel">压力 {{ item.stressLevel }}/5</span>
+                <el-button
+                  link
+                  type="danger"
+                  size="small"
+                  @click="handleDeleteDiary(item)"
+                >删除</el-button>
               </div>
             </div>
 
@@ -159,8 +165,8 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getMyEmotionDiaries, saveEmotionDiary } from '@/api/frontend'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyEmotionDiaries, saveEmotionDiary, deleteEmotionDiary } from '@/api/frontend'
 
 const emotionOptions = ['开心', '平静', '兴奋', '满足', '好奇', '疲惫', '焦虑', '沮丧', '愤怒', '悲伤', '恐惧', '压力']
 const stressColors = ['#67c23a', '#95d475', '#e6a23c', '#f89898', '#f56c6c']
@@ -233,6 +239,25 @@ const analysisOf = (item) => {
   }
   analysisCache.set(item.id, parsed)
   return parsed
+}
+
+const handleDeleteDiary = async (item) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除 ${item.diaryDate} 的日记吗？AI 分析结果也会一起删除，不可恢复。`,
+      '删除确认',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  try {
+    await deleteEmotionDiary(item.id)
+    ElMessage.success('日记已删除')
+    await loadMine()
+  } catch (e) {
+    ElMessage.error('删除失败，请重试')
+  }
 }
 
 const loadMine = async () => {

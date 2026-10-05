@@ -25,3 +25,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 本地 Nginx 运行环境（含二进制与站点产物，不应入库）
+nginx-1.30.5/
