@@ -19,6 +19,7 @@
                     </span>
                     <template #dropdown>
                         <el-dropdown-menu>
+                            <el-dropdown-item command="profile">个人资料</el-dropdown-item>
                             <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
                             <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
                         </el-dropdown-menu>
@@ -76,10 +77,12 @@ const isLogin = computed(() => auth.isLogin)
 // 只有首页显示 footer，路由切换自动响应
 const footerShow = computed(() => route.path === '/')
 
-// 用户菜单：修改密码 / 退出登录
+// 用户菜单：个人资料 / 修改密码 / 退出登录
 const handleUserCommand = (command) => {
     if (command === 'logout') {
         confirmLogout()
+    } else if (command === 'profile') {
+        router.push('/profile')
     } else if (command === 'changePassword') {
         router.push('/change-password')
     }

@@ -43,7 +43,8 @@ const menuList = [
   { path: '/back/dashboard', title: '数据分析', icon: 'PieChart' },
   { path: '/back/knowledge', title: '知识文章', icon: 'ChatLineRound' },
   { path: '/back/consultations', title: '咨询记录', icon: 'Message' },
-  { path: '/back/emotional', title: '情感日志', icon: 'User' }
+  { path: '/back/emotional', title: '情感日志', icon: 'User' },
+  { path: '/back/users', title: '用户管理', icon: 'UserFilled' }
 ]
 </script>
 

@@ -52,6 +52,14 @@ const backendRouter = [
         meta: { title: "情绪日志详情", transition: true },
       },
       {
+        path: "users",
+        component: () => import("@/views/Users.vue"),
+        meta: {
+          title: "用户管理",
+          icon: "UserFilled",
+        },
+      },
+      {
         path: "knowledge/create",
         component: () => import("@/views/ArticleEdit.vue"),
         meta: { title: "新增文章", transition: true },
@@ -132,6 +140,11 @@ const frontendRouter = [
         path: "change-password",
         component: () => import("@/views/ChangePassword.vue"),
         meta: { title: "修改密码", transition: true },
+      },
+      {
+        path: "profile",
+        component: () => import("@/views/Profile.vue"),
+        meta: { title: "个人资料", transition: true },
       }
     ],
   },
@@ -150,7 +163,8 @@ router.beforeEach((to, from, next) => {
   const needLogin =
     to.path.startsWith("/back") ||
     to.path.startsWith("/consultation") ||
-    to.path.startsWith("/emotion-diary");
+    to.path.startsWith("/emotion-diary") ||
+    to.path.startsWith("/profile");
 
   if (auth.isLogin) {
     if (auth.isAdmin) {

@@ -72,6 +72,8 @@ const submitForm = async()=>{
         }
         // 登录态统一写入 store（内部会同步到 localStorage）
         auth.login(data.token, data.userInfo)
+        // ElMessage 挂载在 body 上，路由跳走后提示依然能正常展示
+        ElMessage.success(`登录成功，欢迎回来，${auth.displayName}`)
         // 按角色分流：管理员去管理端，普通用户回用户端
         router.replace(auth.homePath)
     } finally {
