@@ -1,9 +1,9 @@
 <template>
   <div class="page-head">
     <p class="page-title">{{ props.title }}</p>
-  <div class="action-btn">
-    <slot name="buttons"></slot>
-  </div>
+    <div class="action-btn">
+      <slot name="buttons"></slot>
+    </div>
   </div>
 </template>
 
@@ -23,8 +23,10 @@ const props = defineProps({
   align-items: center;
   justify-content: space-between;
   .page-title {
-    font-size: 24px;
-    color: #2d3748;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-1);
+    letter-spacing: 0.2px;
   }
 }
 </style>

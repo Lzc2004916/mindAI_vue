@@ -37,9 +37,9 @@ const transitionName = computed(() =>
 </script>
 <style lang="scss" scoped>
 .backend-layout{
-    --header-height: 64px; /* 只改这一处，Navbar 与 Sidebar.brand 同步对齐 */
+    --header-height: 60px;
     height: 100vh;
-    height: 100dvh; /* 兼容移动端 */
+    height: 100dvh;
     .el-header{
         height: var(--header-height) !important;
     }
@@ -47,12 +47,14 @@ const transitionName = computed(() =>
         height: 100%;
         :deep(.el-main){
             overflow-y: auto;
-            padding: 16px;
-            background: #f5f7fa;
+            padding: 0;
+            background: var(--bg-app);
         }
         .content-container{
-            padding: 20px;
-            background-color: #ffffff;
+            padding: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
             min-height: calc(100% - var(--header-height));
         }
     }

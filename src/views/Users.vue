@@ -41,7 +41,7 @@
       <el-table-column label="注册时间" width="110">
         <template #default="scope">{{ formatTime(scope.row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right">
         <template #default="scope">
           <el-button type="primary" text @click="openDetail(scope.row)">详情</el-button>
           <!-- 后端会拒绝「禁用自己」，这里直接把按钮藏掉，省得用户点了才报错 -->

@@ -1,14 +1,14 @@
 <template>
-  <el-aside :width="isCollapse ? '64px' : '264px'" class="sidebar-aside">
-      <el-menu
-        :collapse-transition="false"
-        :default-active="route.path"
-        class="menu-style"
-        :collapse="isCollapse"
-        router
-      >
+  <el-aside :width="isCollapse ? '68px' : '240px'" class="sidebar-aside">
+    <el-menu
+      :collapse-transition="false"
+      :default-active="route.path"
+      class="menu-style"
+      :collapse="isCollapse"
+      router
+    >
       <div class="brand">
-        <el-image class="brand-image" :src="iconUrl" alt="logo /"></el-image>
+        <div class="brand-mark">聆</div>
         <transition name="brand-fade">
           <div class="info-card" v-show="!isCollapse">
             <h1 class="brand-title">聪聆</h1>
@@ -31,31 +31,27 @@ import { useAdminStore } from '@/stores/admin'
 
 const route = useRoute()
 const adminStore = useAdminStore()
-const iconUrl = new URL("@/assets/images/机器人.png", import.meta.url).href
 const isCollapse = computed(() => adminStore.isCollapse)
 
-/**
- * 菜单项显式声明（不再从 `router.options.routes[0].children` 动态取）。
- * 原因：原写法依赖路由数组的「顺序」和下标 —— 哪天新增/挪动一条路由，菜单就会错位或漏项。
- * 这里 path 直接用完整路径，配合 el-menu 的 router 模式，点击即跳转，不需要手动拼路径。
- */
 const menuList = [
-  { path: '/back/dashboard', title: '数据分析', icon: 'PieChart' },
+  { path: '/back/dashboard', title: '数据概览', icon: 'PieChart' },
   { path: '/back/knowledge', title: '知识文章', icon: 'ChatLineRound' },
   { path: '/back/consultations', title: '咨询记录', icon: 'Message' },
-  { path: '/back/emotional', title: '情感日志', icon: 'User' },
+  { path: '/back/emotional', title: '情感日志', icon: 'Notebook' },
   { path: '/back/users', title: '用户管理', icon: 'UserFilled' }
 ]
 </script>
 
 <style lang="scss" scoped>
 .sidebar-aside {
-  transition: width 0.3s ease;
+  transition: width 0.25s var(--ease-out, ease);
   overflow: hidden;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
 }
 .brand-fade-enter-active,
 .brand-fade-leave-active {
-  transition: opacity 0.25s ease;
+  transition: opacity 0.2s ease;
 }
 .brand-fade-enter-from,
 .brand-fade-leave-to {
@@ -63,38 +59,73 @@ const menuList = [
 }
 .menu-style{
     height: 100%;
+    border-right: none;
+    background: transparent;
+    padding: 12px 8px;
+
+    :deep(.el-menu-item) {
+      border-radius: var(--radius-md);
+      margin-bottom: 4px;
+      color: var(--text-2);
+      font-size: 14px;
+      height: 44px;
+      line-height: 44px;
+
+      &:hover {
+        background: var(--brand-50);
+        color: var(--brand);
+      }
+
+      &.is-active {
+        background: var(--brand);
+        color: #fff;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(15, 110, 86, 0.2);
+
+        .el-icon {
+          color: #fff;
+        }
+      }
+    }
 }
 .brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 10px;
-  background-color: aliceblue;
-  border-bottom: 1px solid #b3b3b375;
-  height: var(--header-height, 64px);
+  gap: 12px;
+  padding: 16px 16px 20px;
+  height: var(--header-height, 60px);
   flex-shrink: 0;
   box-sizing: border-box;
 }
-.brand-image {
-  width: 50px;
-  height: 50px;
-  margin-bottom: 12px;
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--brand-grad-135);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+  box-shadow: 0 4px 10px rgba(15, 110, 86, 0.2);
 }
 .info-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap; /* 过渡期间文字不换行、不变形 */
+  white-space: nowrap;
 }
-/* 下面两个只保留一份定义（原先重复写了两遍，后一份会覆盖前一份，容易误判实际生效值） */
 .brand-title {
-  font-size: 20px;
-  font-weight: bold;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: 0.5px;
+  line-height: 1.2;
 }
 .brand-subtitle {
-  font-size: 14px;
-  font-weight: normal;
-  color: #666;
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
 }
 </style>

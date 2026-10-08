@@ -151,6 +151,76 @@ body {
   box-shadow: var(--shadow-card);
 }
 
+/* ===== 管理端 Element Plus 组件覆盖 ===== */
+/* 表格 */
+.el-table {
+  --el-table-border-color: var(--border);
+  --el-table-header-bg-color: #fafcfb;
+  --el-table-row-hover-bg-color: var(--brand-50);
+  border-radius: var(--radius-md);
+}
+.el-table th.el-table__cell {
+  background: #fafcfb !important;
+  color: var(--text-3);
+  font-weight: 500;
+  font-size: 13px;
+}
+.el-table td.el-table__cell {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+/* 卡片面板（管理端表格外层） */
+.el-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+/* 按钮 */
+.el-button--primary {
+  --el-button-bg-color: var(--brand);
+  --el-button-border-color: var(--brand);
+  --el-button-hover-bg-color: var(--brand-weak);
+  --el-button-hover-border-color: var(--brand-weak);
+  --el-button-active-bg-color: var(--brand-600);
+  --el-button-active-border-color: var(--brand-600);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+.el-button {
+  border-radius: var(--radius-sm);
+}
+
+/* 分页 */
+.el-pagination {
+  --el-pagination-button-bg-color: transparent;
+  --el-pagination-hover-color: var(--brand);
+}
+
+/* 输入框 */
+.el-input__wrapper {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px var(--border) inset;
+}
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--brand) inset;
+}
+
+/* 标签 */
+.el-tag {
+  border-radius: var(--radius-pill);
+  padding: 0 10px;
+}
+
+/* 弹窗 */
+.el-dialog {
+  border-radius: var(--radius-lg);
+}
+.el-drawer {
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
 /* 页面进入的柔和动画 */
 @keyframes fade-up {
   from {
